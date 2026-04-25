@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 
 String resolveApiBaseUrl() {
@@ -9,17 +8,16 @@ String resolveApiBaseUrl() {
   }
 
   if (kIsWeb) {
-    return 'https://aksibgu.gamer.gd';
+    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
   }
 
   if (Platform.isAndroid) {
-    return 'https://aksibgu.gamer.gd';
+    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
   }
 
   if (Platform.isIOS) {
-    // Физический iPhone: IPv4 ПК в той же Wi‑Fi сети (см. ipconfig → «Беспроводная сеть»).
-    return 'https://aksibgu.gamer.gd';
+    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
   }
 
-  return 'https://aksibgu.gamer.gd';
+  return 'https://aksibgu.gamer.gd';  // ← убрали пробел
 }
