@@ -8,21 +8,20 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  url_launcher: ^6.2.4   # для открытия сайтов и ссылок
-  open_file: ^3.3.2       # для открытия PDF локально
-  file_picker: ^10.3.10     # для выбора файлов пользователем
-  path_provider: ^2.1.2   # для получения пути к директориям
-  flutter_file_dialog: ^3.0.2  # для сохранения файлов
+  url_launcher: ^6.2.4
+  open_file: ^3.3.2
+  file_picker: ^10.3.10
+  path_provider: ^2.1.2
+  flutter_file_dialog: ^3.0.2
   http: ^1.2.2
   pointycastle: ^3.9.1
   shared_preferences: ^2.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1  # для настройки иконки приложения
+  flutter_launcher_icons: ^0.13.1
 flutter:
   uses-material-design: true
-  # Все необходимые ассеты
   assets:
     - assets/images/
     - assets/images/application_logo/

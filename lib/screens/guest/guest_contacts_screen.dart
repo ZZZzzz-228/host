@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/api/api_client.dart';
-import '../../data/api/api_base_url.dart';
+
 import '../../data/cache/guest_staff_cache.dart';
 import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+import '../../data/session/app_session.dart';
 class GuestContactsScreen extends StatefulWidget {
   const GuestContactsScreen({super.key});
   @override
@@ -15,9 +16,7 @@ class GuestContactsScreen extends StatefulWidget {
 }
 class _GuestContactsScreenState extends State<GuestContactsScreen> {
   final ScrollController _scrollController = ScrollController();
-  final _apiClient = ApiClient(
-    baseUrl: resolveApiBaseUrl(),
-  );
+  final _apiClient = AppSession.apiClient;
   bool _showMainTitle = false;
 
   /// Пока true и список пуст — показываем индикатор первой загрузки.

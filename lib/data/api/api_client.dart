@@ -6,6 +6,15 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:pointycastle/export.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+const String _kServerBase = 'http://kucersta.beget.tech';
+
+String _fixUrl(String url) {
+  if (url.isEmpty) return url;
+  if (url.startsWith('/')) return '$_kServerBase$url';
+  return url;
+}
 
 class ApiClient {
   ApiClient({required this.baseUrl});
@@ -13,11 +22,35 @@ class ApiClient {
   final String baseUrl;
   String? _token;
   String? _challengeCookie;
-  final Duration _timeout = const Duration(seconds: 8);
+  bool _challengeLoaded = false;
+
+  static const _challengeCookieKey = 'aksibgu_challenge_cookie_v1';
+  final Duration _timeout = const Duration(seconds: 20);
+  static const int _maxRetries = 3;
 
   String? get token => _token;
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
+
+  Future<void> _ensureChallengeLoaded() async {
+    if (_challengeLoaded) return;
+    _challengeLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_challengeCookieKey);
+      if (saved != null && saved.isNotEmpty) {
+        _challengeCookie = saved;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistChallengeCookie(String value) async {
+    _challengeCookie = value;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_challengeCookieKey, value);
+    } catch (_) {}
+  }
 
   Map<String, String> _defaultHeaders([Map<String, String>? headers]) {
     return <String, String>{
@@ -35,33 +68,46 @@ class ApiClient {
     };
   }
 
-  /// Базовый исполнитель запроса с автоматическим решением JS-челленджа anti-bot защиты хостинга.
-  /// Если сервер вместо JSON вернул HTML с зашифрованной cookie `__test`,
-  /// мы её расшифровываем (AES-CBC) и повторяем запрос уже с правильной cookie.
   Future<http.Response> _executeRequest(
       Future<http.Response> Function(Map<String, String> headers) requestBuilder,
       ) async {
-    try {
-      var response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+    await _ensureChallengeLoaded();
 
-      final solvedCookie = _solveChallengeCookie(response);
-      if (solvedCookie != null) {
-        _challengeCookie = solvedCookie;
-        response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+    Object? lastError;
+    for (var attempt = 0; attempt < _maxRetries; attempt++) {
+      try {
+        var response =
+        await requestBuilder(_defaultHeaders()).timeout(_timeout);
+
+        final solvedCookie = _solveChallengeCookie(response);
+        if (solvedCookie != null) {
+          await _persistChallengeCookie(solvedCookie);
+          response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+
+          if (_solveChallengeCookie(response) != null) {
+            lastError = ApiException('Challenge re-issued, retrying...');
+            continue;
+          }
+        }
+
+        return response;
+      } on TimeoutException {
+        lastError = ApiException('API timeout ($_timeout) at $baseUrl');
+      } on HandshakeException {
+        lastError = ApiException(
+          'SSL error while connecting to $baseUrl. Check the HTTPS certificate.',
+        );
+      } on SocketException catch (e) {
+        lastError = ApiException('Cannot connect to $baseUrl: ${e.message}');
+      } on http.ClientException catch (e) {
+        lastError =
+            ApiException('Network client error at $baseUrl: ${e.message}');
       }
-
-      return response;
-    } on TimeoutException {
-      throw ApiException('API timeout ($_timeout) at $baseUrl');
-    } on HandshakeException {
-      throw ApiException(
-        'SSL error while connecting to $baseUrl. Check the HTTPS certificate on the server.',
-      );
-    } on SocketException catch (e) {
-      throw ApiException('Cannot connect to $baseUrl: ${e.message}');
-    } on http.ClientException catch (e) {
-      throw ApiException('Network client error at $baseUrl: ${e.message}');
+      await Future<void>.delayed(Duration(milliseconds: 200 * (attempt + 1)));
     }
+
+    if (lastError is ApiException) throw lastError;
+    throw ApiException('Network error');
   }
 
   Future<http.Response> _get(String path, {Map<String, String>? headers}) {
@@ -96,9 +142,6 @@ class ApiClient {
     );
   }
 
-  /// Если ответ — это HTML-страница anti-bot защиты, парсим из неё параметры и
-  /// возвращаем расшифрованное значение cookie `__test`.
-  /// Иначе возвращаем null (значит, ответ настоящий и трогать его не нужно).
   String? _solveChallengeCookie(http.Response response) {
     final contentType = response.headers['content-type'] ?? '';
     final body = response.body;
@@ -110,9 +153,7 @@ class ApiClient {
     final match = RegExp(
       r'var a=toNumbers\("([0-9a-fA-F]+)"\),b=toNumbers\("([0-9a-fA-F]+)"\),c=toNumbers\("([0-9a-fA-F]+)"\)',
     ).firstMatch(body);
-    if (match == null) {
-      return null;
-    }
+    if (match == null) return null;
 
     try {
       return _decryptAesChallenge(
@@ -138,7 +179,9 @@ class ApiClient {
     final cipher = CBCBlockCipher(AESEngine())
       ..init(false, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
 
-    for (var offset = 0; offset < cipherBytes.length; offset += cipher.blockSize) {
+    for (var offset = 0;
+    offset < cipherBytes.length;
+    offset += cipher.blockSize) {
       cipher.processBlock(cipherBytes, offset, output, offset);
     }
 
@@ -165,6 +208,12 @@ class ApiClient {
     return buffer.toString();
   }
 
+  Future<void> warmup() async {
+    try {
+      await _get('/health');
+    } catch (_) {}
+  }
+
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -172,10 +221,7 @@ class ApiClient {
     final response = await _post(
       '/auth/login',
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
+      body: jsonEncode({'email': email, 'password': password}),
     );
 
     final json = _decodeJson(response.body);
@@ -183,7 +229,6 @@ class ApiClient {
       _token = json['token']?.toString();
       return json;
     }
-
     throw ApiException(json['message']?.toString() ?? 'Login failed');
   }
 
@@ -192,14 +237,11 @@ class ApiClient {
       final response = await _get('/contacts');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load contacts');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load contacts');
       }
-
       final data = json['data'];
-      if (data is! List) {
-        throw ApiException('Invalid contacts response');
-      }
-
+      if (data is! List) throw ApiException('Invalid contacts response');
       return data
           .whereType<Map<String, dynamic>>()
           .map(ContactItem.fromJson)
@@ -222,14 +264,11 @@ class ApiClient {
       );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load vacancies');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load vacancies');
       }
-
       final data = json['data'];
-      if (data is! List) {
-        throw ApiException('Invalid vacancies response');
-      }
-
+      if (data is! List) throw ApiException('Invalid vacancies response');
       return data
           .whereType<Map<String, dynamic>>()
           .map(VacancyItem.fromJson)
@@ -244,14 +283,11 @@ class ApiClient {
       final response = await _get('/news');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load news');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load news');
       }
-
       final data = json['data'];
-      if (data is! List) {
-        throw ApiException('Invalid news response');
-      }
-
+      if (data is! List) throw ApiException('Invalid news response');
       return data
           .whereType<Map<String, dynamic>>()
           .map(NewsItem.fromJson)
@@ -266,14 +302,11 @@ class ApiClient {
       final response = await _get('/staff');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load staff');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load staff');
       }
-
       final data = json['data'];
-      if (data is! List) {
-        throw ApiException('Invalid staff response');
-      }
-
+      if (data is! List) throw ApiException('Invalid staff response');
       return data
           .whereType<Map<String, dynamic>>()
           .map(StaffMemberItem.fromJson)
@@ -288,12 +321,11 @@ class ApiClient {
       final response = await _get('/stories');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load stories');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load stories');
       }
       final data = json['data'];
-      if (data is! List) {
-        throw ApiException('Invalid stories response');
-      }
+      if (data is! List) throw ApiException('Invalid stories response');
       return data
           .whereType<Map<String, dynamic>>()
           .map(StoryItem.fromJson)
@@ -307,16 +339,13 @@ class ApiClient {
     try {
       final response = await _get('/public/pages/$slug');
       final json = _decodeJson(response.body);
-      if (response.statusCode == 404) {
-        return _fallbackPageBySlug(slug);
-      }
+      if (response.statusCode == 404) return _fallbackPageBySlug(slug);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load page');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load page');
       }
       final data = json['data'];
-      if (data is! Map<String, dynamic>) {
-        return _fallbackPageBySlug(slug);
-      }
+      if (data is! Map<String, dynamic>) return _fallbackPageBySlug(slug);
       return PageContentItem.fromJson(data);
     } catch (_) {
       return _fallbackPageBySlug(slug);
@@ -328,11 +357,15 @@ class ApiClient {
       final response = await _get('/public/specialties');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load specialties');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load specialties');
       }
       final data = json['data'];
       if (data is! List) return _fallbackSpecialties();
-      return data.whereType<Map<String, dynamic>>().map(SpecialtyItem.fromJson).toList(growable: false);
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(SpecialtyItem.fromJson)
+          .toList(growable: false);
     } catch (_) {
       return _fallbackSpecialties();
     }
@@ -343,7 +376,8 @@ class ApiClient {
       final response = await _get('/public/education-programs');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load education programs');
+        throw ApiException(json['message']?.toString() ??
+            'Failed to load education programs');
       }
       final data = json['data'];
       if (data is! List) return _fallbackEducationPrograms();
@@ -361,11 +395,15 @@ class ApiClient {
       final response = await _get('/public/partners');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load partners');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load partners');
       }
       final data = json['data'];
       if (data is! List) return _fallbackPartners();
-      return data.whereType<Map<String, dynamic>>().map(PartnerItem.fromJson).toList(growable: false);
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(PartnerItem.fromJson)
+          .toList(growable: false);
     } catch (_) {
       return _fallbackPartners();
     }
@@ -376,16 +414,13 @@ class ApiClient {
       final response = await _get('/public/career-test');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to load career test');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load career test');
       }
       final data = json['data'];
-      if (data is! Map<String, dynamic>) {
-        return _fallbackCareerTest();
-      }
+      if (data is! Map<String, dynamic>) return _fallbackCareerTest();
       final raw = data['questions'];
-      if (raw is! List) {
-        return _fallbackCareerTest();
-      }
+      if (raw is! List) return _fallbackCareerTest();
       final questions = raw
           .whereType<Map<String, dynamic>>()
           .map(CareerTestQuestion.fromJson)
@@ -397,33 +432,32 @@ class ApiClient {
   }
 
   Future<StudentProfileItem?> fetchStudentProfile() async {
-    final response = await _get(
-      '/student/profile',
-      headers: _authHeaders(),
-    );
+    final response =
+    await _get('/student/profile', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to load student profile');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to load student profile');
     }
     final data = json['data'];
-    if (data is! Map<String, dynamic>) {
-      return null;
-    }
+    if (data is! Map<String, dynamic>) return null;
     return StudentProfileItem.fromJson(data);
   }
 
   Future<List<StudentResumeItem>> fetchStudentResumes() async {
-    final response = await _get(
-      '/student/resumes',
-      headers: _authHeaders(),
-    );
+    final response =
+    await _get('/student/resumes', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to load resumes');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to load resumes');
     }
     final data = json['data'];
     if (data is! List) return const [];
-    return data.whereType<Map<String, dynamic>>().map(StudentResumeItem.fromJson).toList(growable: false);
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentResumeItem.fromJson)
+        .toList(growable: false);
   }
 
   Future<void> createStudentResume({
@@ -437,33 +471,35 @@ class ApiClient {
     );
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to create resume');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to create resume');
     }
   }
 
   Future<void> deleteStudentResume(int id) async {
-    final response = await _delete(
-      '/student/resumes/$id',
-      headers: _authHeaders(),
-    );
+    final response =
+    await _delete('/student/resumes/$id', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to delete resume');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to delete resume');
     }
   }
 
   Future<List<StudentPortfolioItem>> fetchStudentPortfolio() async {
-    final response = await _get(
-      '/student/portfolio',
-      headers: _authHeaders(),
-    );
+    final response =
+    await _get('/student/portfolio', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to load portfolio');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to load portfolio');
     }
     final data = json['data'];
     if (data is! List) return const [];
-    return data.whereType<Map<String, dynamic>>().map(StudentPortfolioItem.fromJson).toList(growable: false);
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StudentPortfolioItem.fromJson)
+        .toList(growable: false);
   }
 
   Future<void> createStudentPortfolioItem({
@@ -474,26 +510,29 @@ class ApiClient {
     final response = await _post(
       '/student/portfolio',
       headers: _authHeaders(contentTypeJson: true),
-      body: jsonEncode({'title': title, 'description': description, 'project_url': projectUrl}),
+      body: jsonEncode({
+        'title': title,
+        'description': description,
+        'project_url': projectUrl,
+      }),
     );
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to create portfolio item');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to create portfolio item');
     }
   }
 
   Future<void> deleteStudentPortfolioItem(int id) async {
-    final response = await _delete(
-      '/student/portfolio/$id',
-      headers: _authHeaders(),
-    );
+    final response =
+    await _delete('/student/portfolio/$id', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to delete portfolio item');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to delete portfolio item');
     }
   }
 
-  /// Заявка абитуриента (документы / курсы). С файлами — multipart, без — JSON.
   Future<int> submitPublicApplication({
     required String type,
     required String fullName,
@@ -516,13 +555,15 @@ class ApiClient {
       );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(json['message']?.toString() ?? 'Failed to submit application');
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to submit application');
       }
       return (json['id'] as num?)?.toInt() ?? 0;
     }
 
     Future<http.Response> sendMultipart(Map<String, String> headers) async {
-      final request = http.MultipartRequest('POST', _u('/public/applications'));
+      final request =
+      http.MultipartRequest('POST', _u('/public/applications'));
       request.headers.addAll(headers);
       request.fields['type'] = type;
       request.fields['full_name'] = fullName;
@@ -546,16 +587,15 @@ class ApiClient {
     final response = await _executeRequest(sendMultipart);
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(json['message']?.toString() ?? 'Failed to submit application');
+      throw ApiException(
+          json['message']?.toString() ?? 'Failed to submit application');
     }
     return (json['id'] as num?)?.toInt() ?? 0;
   }
 
   Map<String, String> _authHeaders({bool contentTypeJson = false}) {
     final headers = <String, String>{};
-    if (contentTypeJson) {
-      headers['Content-Type'] = 'application/json';
-    }
+    if (contentTypeJson) headers['Content-Type'] = 'application/json';
     if (_token != null && _token!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $_token';
     }
@@ -565,43 +605,31 @@ class ApiClient {
   Map<String, dynamic> _decodeJson(String body) {
     try {
       final decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
+      if (decoded is Map<String, dynamic>) return decoded;
       throw ApiException('Invalid API response shape');
     } on FormatException {
-      final preview = body.length > 200 ? '${body.substring(0, 200)}...' : body;
+      final preview =
+      body.length > 200 ? '${body.substring(0, 200)}...' : body;
       throw ApiException('API returned non-JSON response: $preview');
     }
   }
 
-  // Fallback методы для возврата пустых данных при ошибках
   List<ContactItem> _fallbackContacts() => const [];
-
   List<VacancyItem> _fallbackVacancies(String? query) => const [];
-
   List<NewsItem> _fallbackNews() => const [];
-
   List<StaffMemberItem> _fallbackStaff() => const [];
-
   List<StoryItem> _fallbackStories() => const [];
-
   PageContentItem? _fallbackPageBySlug(String slug) => null;
-
   List<SpecialtyItem> _fallbackSpecialties() => const [];
-
   List<EducationProgramItem> _fallbackEducationPrograms() => const [];
-
   List<PartnerItem> _fallbackPartners() => const [];
-
-  CareerTestPayload _fallbackCareerTest() => const CareerTestPayload(questions: []);
+  CareerTestPayload _fallbackCareerTest() =>
+      const CareerTestPayload(questions: []);
 }
 
 class ApiException implements Exception {
   ApiException(this.message);
-
   final String message;
-
   @override
   String toString() => message;
 }
@@ -656,7 +684,6 @@ class VacancyItem {
     if (publishedRaw != null && publishedRaw.isNotEmpty) {
       published = DateTime.tryParse(publishedRaw);
     }
-
     return VacancyItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
@@ -691,12 +718,11 @@ class NewsItem {
     if (publishedRaw != null && publishedRaw.isNotEmpty) {
       published = DateTime.tryParse(publishedRaw);
     }
-
     return NewsItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
-      imageUrl: (json['image_url'] ?? '').toString(),
+      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
       publishedAt: published,
     );
   }
@@ -731,7 +757,7 @@ class StaffMemberItem {
       email: (json['email'] ?? '').toString(),
       phone: (json['phone'] ?? '').toString(),
       officeHours: (json['office_hours'] ?? '').toString(),
-      photoUrl: (json['photo_url'] ?? '').toString(),
+      photoUrl: _fixUrl((json['photo_url'] ?? '').toString()),
       colorHex: (json['color_hex'] ?? '').toString(),
     );
   }
@@ -768,7 +794,7 @@ class StoryItem {
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
-      imageUrl: (json['image_url'] ?? '').toString(),
+      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
     );
   }
@@ -789,7 +815,6 @@ class PageStatCms {
     required this.label,
     required this.colorHex,
   });
-
   final String iconName;
   final String value;
   final String label;
@@ -803,7 +828,6 @@ class PageCmsCard {
     required this.text,
     required this.colorHex,
   });
-
   final String iconName;
   final String title;
   final String text;
@@ -856,51 +880,41 @@ class PageContentItem {
       if (t.isEmpty) return {};
       try {
         final decoded = jsonDecode(t);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
+        if (decoded is Map<String, dynamic>) return decoded;
       } catch (_) {}
     }
     return {};
   }
 
   static List<PageStatCms> _parseStats(dynamic raw) {
-    if (raw is! List) {
-      return const [];
-    }
+    if (raw is! List) return const [];
     final out = <PageStatCms>[];
     for (final item in raw) {
       if (item is Map) {
         final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
-        out.add(
-          PageStatCms(
-            iconName: (m['icon'] ?? '').toString(),
-            value: (m['value'] ?? '').toString(),
-            label: (m['label'] ?? '').toString(),
-            colorHex: (m['color'] ?? '').toString(),
-          ),
-        );
+        out.add(PageStatCms(
+          iconName: (m['icon'] ?? '').toString(),
+          value: (m['value'] ?? '').toString(),
+          label: (m['label'] ?? '').toString(),
+          colorHex: (m['color'] ?? '').toString(),
+        ));
       }
     }
     return out;
   }
 
   static List<PageCmsCard> _parseCmsCards(dynamic raw) {
-    if (raw is! List) {
-      return const [];
-    }
+    if (raw is! List) return const [];
     final out = <PageCmsCard>[];
     for (final item in raw) {
       if (item is Map) {
         final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
-        out.add(
-          PageCmsCard(
-            iconName: (m['icon'] ?? '').toString(),
-            title: (m['title'] ?? '').toString(),
-            text: (m['text'] ?? '').toString(),
-            colorHex: (m['color'] ?? '').toString(),
-          ),
-        );
+        out.add(PageCmsCard(
+          iconName: (m['icon'] ?? '').toString(),
+          title: (m['title'] ?? '').toString(),
+          text: (m['text'] ?? '').toString(),
+          colorHex: (m['color'] ?? '').toString(),
+        ));
       }
     }
     return out;
@@ -914,13 +928,15 @@ class PageContentItem {
       audience: (json['audience'] ?? '').toString(),
       lead: (contentMap['lead'] ?? '').toString(),
       body: (contentMap['body'] ?? '').toString(),
-      coverImageUrl: (json['cover_image_url'] ?? '').toString(),
+      coverImageUrl: _fixUrl((json['cover_image_url'] ?? '').toString()),
       missionTitle: (contentMap['mission_title'] ?? '').toString(),
       aboutTitle: (contentMap['about_title'] ?? '').toString(),
       statsHeading: (contentMap['stats_heading'] ?? '').toString(),
       advantagesHeading: (contentMap['advantages_heading'] ?? '').toString(),
-      achievementsHeading: (contentMap['achievements_heading'] ?? '').toString(),
-      infrastructureHeading: (contentMap['infrastructure_heading'] ?? '').toString(),
+      achievementsHeading:
+      (contentMap['achievements_heading'] ?? '').toString(),
+      infrastructureHeading:
+      (contentMap['infrastructure_heading'] ?? '').toString(),
       infrastructureText: (contentMap['infrastructure_text'] ?? '').toString(),
       stats: _parseStats(contentMap['stats']),
       advantages: _parseCmsCards(contentMap['advantages']),
@@ -976,7 +992,7 @@ class SpecialtyItem {
       salaryText: (json['salary_text'] ?? '').toString(),
       colorHex: (json['color_hex'] ?? '').toString(),
       iconName: (json['icon_name'] ?? '').toString(),
-      imageUrl: (json['image_url'] ?? '').toString(),
+      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
     );
   }
 
@@ -1040,7 +1056,7 @@ class EducationProgramItem {
       formatText: (json['format_text'] ?? '').toString(),
       iconName: (json['icon_name'] ?? '').toString(),
       colorHex: (json['color_hex'] ?? '').toString(),
-      imageUrl: (json['image_url'] ?? '').toString(),
+      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
     );
   }
 
@@ -1080,9 +1096,17 @@ class PartnerItem {
       name: (json['name'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       websiteUrl: (json['website_url'] ?? '').toString(),
-      logoUrl: (json['logo_url'] ?? '').toString(),
+      logoUrl: _fixUrl((json['logo_url'] ?? '').toString()),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'website_url': websiteUrl,
+    'logo_url': logoUrl,
+  };
 }
 
 class CareerTestPayload {
@@ -1153,7 +1177,8 @@ class StudentProfileItem {
 }
 
 class StudentResumeItem {
-  StudentResumeItem({required this.id, required this.title, required this.summary});
+  StudentResumeItem(
+      {required this.id, required this.title, required this.summary});
   final int id;
   final String title;
   final String summary;

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'data/session/app_session.dart';
+import 'data/cache/guest_applicant_content_cache.dart';
+import 'data/cache/guest_staff_cache.dart';
+import 'data/cache/guest_stories_cache.dart';
 import 'screens/guest/guest_main_screen.dart';
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -44,9 +48,7 @@ class MyApp extends StatelessWidget {
 
 class _AdaptiveViewport extends StatelessWidget {
   const _AdaptiveViewport({required this.child});
-
   final Widget child;
-
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -54,11 +56,9 @@ class _AdaptiveViewport extends StatelessWidget {
         final media = MediaQuery.of(context);
         final width = constraints.maxWidth;
         final shortestSide = media.size.shortestSide;
-
         final textScale = (shortestSide / 390).clamp(0.92, 1.08);
         final isLargeScreen = width >= 700;
         final contentWidth = isLargeScreen ? 560.0 : width;
-
         return MediaQuery(
           data: media.copyWith(textScaler: TextScaler.linear(textScale)),
           child: ColoredBox(
@@ -75,14 +75,49 @@ class _AdaptiveViewport extends StatelessWidget {
     );
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
-// Анимация при входе в приложение
-// ─────────────────────────────────────────────────────────────────────────────
+
+/// Прогрев API + предзагрузка контента во время splash-анимации.
+/// Это даёт мгновенное появление данных на экранах после splash.
+Future<void> _preloadContent() async {
+  final api = AppSession.apiClient;
+  // Сначала прогреваем cookie через /health
+  await api.warmup();
+  // Параллельно тянем все основные данные и кэшируем их
+  await Future.wait<void>([
+    api.fetchSpecialties().then((items) async {
+      if (items.isNotEmpty) {
+        await GuestApplicantContentCache.saveSpecialties(items);
+      }
+    }).catchError((_) {}),
+    api.fetchEducationPrograms().then((items) async {
+      if (items.isNotEmpty) {
+        await GuestApplicantContentCache.saveEducationPrograms(items);
+      }
+    }).catchError((_) {}),
+    api.fetchStories().then((items) async {
+      if (items.isNotEmpty) {
+        await GuestStoriesCache.save(items);
+      }
+    }).catchError((_) {}),
+    api.fetchStaff().then((items) async {
+      if (items.isNotEmpty) {
+        await GuestStaffCache.save(items);
+      }
+    }).catchError((_) {}),
+    api.fetchPartners().catchError((_) => <PartnerItemDummy>[]),
+    api.fetchPageBySlug('about-college').catchError((_) => null),
+  ]);
+}
+
+// фиктивный тип, чтобы catchError не ругался на типы
+class PartnerItemDummy {}
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
+
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
   late AnimationController _scaleController;
@@ -92,52 +127,45 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _textFadeAnimation;
   late Animation<Offset> _textSlideAnimation;
+
   @override
   void initState() {
     super.initState();
-    // Контроллер масштабирования иконки
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
-    // Контроллер появления иконки
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
-    // Контроллер текста
-    _textController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _textFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeIn),
-    );
-    _textSlideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOut),
-    );
+    _scaleController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut));
+    _fadeController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
+    _textController =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _textFadeAnimation = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _textController, curve: Curves.easeIn));
+    _textSlideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+            .animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
     _startAnimations();
   }
+
   void _startAnimations() async {
-    // Небольшая пауза перед началом
+    // Параллельно с анимацией грузим данные с сервера, чтобы экраны открывались мгновенно.
+    final preloadFuture = _preloadContent();
+
     await Future.delayed(const Duration(milliseconds: 200));
-    // Иконка появляется и масштабируется
     _fadeController.forward();
     _scaleController.forward();
-    // Текст появляется чуть позже
     await Future.delayed(const Duration(milliseconds: 600));
     _textController.forward();
-    // Переход на главный экран
     await Future.delayed(const Duration(milliseconds: 2000));
+
+    // Дожидаемся, но не дольше 4 секунд после анимации, иначе запускаем как есть
+    await Future.any([
+      preloadFuture,
+      Future.delayed(const Duration(seconds: 4)),
+    ]);
+
     if (mounted) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
@@ -151,6 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
       );
     }
   }
+
   @override
   void dispose() {
     _scaleController.dispose();
@@ -158,6 +187,7 @@ class _SplashScreenState extends State<SplashScreen>
     _textController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,17 +198,12 @@ class _SplashScreenState extends State<SplashScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF4A90E2),
-              Color(0xFF357ABD),
-              Color(0xFF2A6099),
-            ],
+            colors: [Color(0xFF4A90E2), Color(0xFF357ABD), Color(0xFF2A6099)],
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Анимированная иконка
             FadeTransition(
               opacity: _fadeAnimation,
               child: ScaleTransition(
@@ -211,7 +236,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             const SizedBox(height: 32),
-            // Анимированный текст
             SlideTransition(
               position: _textSlideAnimation,
               child: FadeTransition(

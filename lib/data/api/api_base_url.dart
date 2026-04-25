@@ -8,16 +8,16 @@ String resolveApiBaseUrl() {
   }
 
   if (kIsWeb) {
-    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
+    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
   }
 
   if (Platform.isAndroid) {
-    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
+    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
   }
 
   if (Platform.isIOS) {
-    return 'https://aksibgu.gamer.gd';  // ← убрали пробел
+    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
   }
 
-  return 'https://aksibgu.gamer.gd';  // ← убрали пробел
+  return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
 }
