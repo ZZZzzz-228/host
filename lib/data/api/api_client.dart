@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:pointycastle/export.dart';
 
 class ApiClient {
   ApiClient({required this.baseUrl});
 
   final String baseUrl;
   String? _token;
+  String? _challengeCookie;
   final Duration _timeout = const Duration(seconds: 8);
 
   String? get token => _token;
@@ -26,13 +29,28 @@ class ApiClient {
       'User-Agent':
       'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
       'X-Requested-With': 'XMLHttpRequest',
+      if (_challengeCookie != null && _challengeCookie!.isNotEmpty)
+        'Cookie': '__test=$_challengeCookie',
       ...?headers,
     };
   }
 
-  Future<http.Response> _get(String path, {Map<String, String>? headers}) async {
+  /// Базовый исполнитель запроса с автоматическим решением JS-челленджа anti-bot защиты хостинга.
+  /// Если сервер вместо JSON вернул HTML с зашифрованной cookie `__test`,
+  /// мы её расшифровываем (AES-CBC) и повторяем запрос уже с правильной cookie.
+  Future<http.Response> _executeRequest(
+      Future<http.Response> Function(Map<String, String> headers) requestBuilder,
+      ) async {
     try {
-      return await http.get(_u(path), headers: _defaultHeaders(headers)).timeout(_timeout);
+      var response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+
+      final solvedCookie = _solveChallengeCookie(response);
+      if (solvedCookie != null) {
+        _challengeCookie = solvedCookie;
+        response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+      }
+
+      return response;
     } on TimeoutException {
       throw ApiException('API timeout ($_timeout) at $baseUrl');
     } on HandshakeException {
@@ -44,42 +62,107 @@ class ApiClient {
     } on http.ClientException catch (e) {
       throw ApiException('Network client error at $baseUrl: ${e.message}');
     }
+  }
+
+  Future<http.Response> _get(String path, {Map<String, String>? headers}) {
+    return _executeRequest(
+          (effectiveHeaders) => http.get(
+        _u(path),
+        headers: {...effectiveHeaders, ...?headers},
+      ),
+    );
   }
 
   Future<http.Response> _post(
       String path, {
         Map<String, String>? headers,
         Object? body,
-      }) async {
+      }) {
+    return _executeRequest(
+          (effectiveHeaders) => http.post(
+        _u(path),
+        headers: {...effectiveHeaders, ...?headers},
+        body: body,
+      ),
+    );
+  }
+
+  Future<http.Response> _delete(String path, {Map<String, String>? headers}) {
+    return _executeRequest(
+          (effectiveHeaders) => http.delete(
+        _u(path),
+        headers: {...effectiveHeaders, ...?headers},
+      ),
+    );
+  }
+
+  /// Если ответ — это HTML-страница anti-bot защиты, парсим из неё параметры и
+  /// возвращаем расшифрованное значение cookie `__test`.
+  /// Иначе возвращаем null (значит, ответ настоящий и трогать его не нужно).
+  String? _solveChallengeCookie(http.Response response) {
+    final contentType = response.headers['content-type'] ?? '';
+    final body = response.body;
+    if (!contentType.contains('text/html') &&
+        !body.contains('document.cookie="__test=')) {
+      return null;
+    }
+
+    final match = RegExp(
+      r'var a=toNumbers\("([0-9a-fA-F]+)"\),b=toNumbers\("([0-9a-fA-F]+)"\),c=toNumbers\("([0-9a-fA-F]+)"\)',
+    ).firstMatch(body);
+    if (match == null) {
+      return null;
+    }
+
     try {
-      return await http.post(_u(path), headers: _defaultHeaders(headers), body: body).timeout(_timeout);
-    } on TimeoutException {
-      throw ApiException('API timeout ($_timeout) at $baseUrl');
-    } on HandshakeException {
-      throw ApiException(
-        'SSL error while connecting to $baseUrl. Check the HTTPS certificate on the server.',
+      return _decryptAesChallenge(
+        keyHex: match.group(1)!,
+        ivHex: match.group(2)!,
+        cipherHex: match.group(3)!,
       );
-    } on SocketException catch (e) {
-      throw ApiException('Cannot connect to $baseUrl: ${e.message}');
-    } on http.ClientException catch (e) {
-      throw ApiException('Network client error at $baseUrl: ${e.message}');
+    } catch (_) {
+      return null;
     }
   }
 
-  Future<http.Response> _delete(String path, {Map<String, String>? headers}) async {
-    try {
-      return await http.delete(_u(path), headers: _defaultHeaders(headers)).timeout(_timeout);
-    } on TimeoutException {
-      throw ApiException('API timeout ($_timeout) at $baseUrl');
-    } on HandshakeException {
-      throw ApiException(
-        'SSL error while connecting to $baseUrl. Check the HTTPS certificate on the server.',
-      );
-    } on SocketException catch (e) {
-      throw ApiException('Cannot connect to $baseUrl: ${e.message}');
-    } on http.ClientException catch (e) {
-      throw ApiException('Network client error at $baseUrl: ${e.message}');
+  String _decryptAesChallenge({
+    required String keyHex,
+    required String ivHex,
+    required String cipherHex,
+  }) {
+    final key = Uint8List.fromList(_hexToBytes(keyHex));
+    final iv = Uint8List.fromList(_hexToBytes(ivHex));
+    final cipherBytes = Uint8List.fromList(_hexToBytes(cipherHex));
+    final output = Uint8List(cipherBytes.length);
+
+    final cipher = CBCBlockCipher(AESEngine())
+      ..init(false, ParametersWithIV<KeyParameter>(KeyParameter(key), iv));
+
+    for (var offset = 0; offset < cipherBytes.length; offset += cipher.blockSize) {
+      cipher.processBlock(cipherBytes, offset, output, offset);
     }
+
+    return _bytesToHex(output);
+  }
+
+  List<int> _hexToBytes(String hex) {
+    final normalized = hex.trim();
+    return List<int>.generate(
+      normalized.length ~/ 2,
+          (index) => int.parse(
+        normalized.substring(index * 2, index * 2 + 2),
+        radix: 16,
+      ),
+      growable: false,
+    );
+  }
+
+  String _bytesToHex(List<int> bytes) {
+    final buffer = StringBuffer();
+    for (final value in bytes) {
+      buffer.write(value.toRadixString(16).padLeft(2, '0'));
+    }
+    return buffer.toString();
   }
 
   Future<Map<String, dynamic>> login({
@@ -134,7 +217,9 @@ class ApiClient {
             : null,
       );
 
-      final response = await http.get(uri, headers: _defaultHeaders()).timeout(_timeout);
+      final response = await _executeRequest(
+            (headers) => http.get(uri, headers: headers),
+      );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(json['message']?.toString() ?? 'Failed to load vacancies');
@@ -436,38 +521,29 @@ class ApiClient {
       return (json['id'] as num?)?.toInt() ?? 0;
     }
 
-    final request = http.MultipartRequest('POST', _u('/public/applications'));
-    request.headers.addAll(_defaultHeaders());
-    request.fields['type'] = type;
-    request.fields['full_name'] = fullName;
-    if (email != null && email.isNotEmpty) request.fields['email'] = email;
-    if (phone != null && phone.isNotEmpty) request.fields['phone'] = phone;
-    request.fields['payload_json'] = jsonEncode(payload);
+    Future<http.Response> sendMultipart(Map<String, String> headers) async {
+      final request = http.MultipartRequest('POST', _u('/public/applications'));
+      request.headers.addAll(headers);
+      request.fields['type'] = type;
+      request.fields['full_name'] = fullName;
+      if (email != null && email.isNotEmpty) request.fields['email'] = email;
+      if (phone != null && phone.isNotEmpty) request.fields['phone'] = phone;
+      request.fields['payload_json'] = jsonEncode(payload);
 
-    for (final f in files) {
-      final p = f.path;
-      if (p != null && p.isNotEmpty) {
-        request.files.add(
-          await http.MultipartFile.fromPath('files[]', p, filename: f.name),
-        );
+      for (final f in files) {
+        final p = f.path;
+        if (p != null && p.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath('files[]', p, filename: f.name),
+          );
+        }
       }
+
+      final streamed = await request.send();
+      return http.Response.fromStream(streamed);
     }
 
-    late final http.StreamedResponse streamed;
-    try {
-      streamed = await request.send().timeout(_timeout);
-    } on TimeoutException {
-      throw ApiException('API timeout ($_timeout) at $baseUrl');
-    } on HandshakeException {
-      throw ApiException(
-        'SSL error while connecting to $baseUrl. Check the HTTPS certificate on the server.',
-      );
-    } on SocketException catch (e) {
-      throw ApiException('Cannot connect to $baseUrl: ${e.message}');
-    } on http.ClientException catch (e) {
-      throw ApiException('Network client error at $baseUrl: ${e.message}');
-    }
-    final response = await http.Response.fromStream(streamed);
+    final response = await _executeRequest(sendMultipart);
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(json['message']?.toString() ?? 'Failed to submit application');
