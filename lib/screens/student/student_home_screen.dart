@@ -2,20 +2,23 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
-import '../../data/api/api_base_url.dart';
+import '../../data/session/app_session.dart';
 import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
   @override
   State<StudentHomeScreen> createState() => _StudentHomeScreenState();
 }
+
 class _StudentHomeScreenState extends State<StudentHomeScreen> {
   // Список просмотренных историй
   final Set<int> _viewedStories = {};
-  final _apiClient = ApiClient(
-    baseUrl: resolveApiBaseUrl(),
-  );
+
+  // ✅ ИСПРАВЛЕНО: используем единственный глобальный ApiClient с куками
+  final _apiClient = AppSession.apiClient;
+
   late Future<List<NewsItem>> _newsFuture;
   late Future<List<StoryItem>> _storiesFuture;
 
@@ -31,6 +34,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       _viewedStories.add(index);
     });
   }
+
   bool _isViewed(int index) {
     return _viewedStories.contains(index);
   }
@@ -60,86 +64,86 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
-            const SizedBox(height: 16),
-            // ЛЕНТА ИСТОРИЙ (STORIES) - ПРЯМОУГОЛЬНИКИ
-            SizedBox(
-              height: 180,
-              child: FutureBuilder<List<StoryItem>>(
-                future: _storiesFuture,
+              const SizedBox(height: 16),
+              // ЛЕНТА ИСТОРИЙ (STORIES) - ПРЯМОУГОЛЬНИКИ
+              SizedBox(
+                height: 180,
+                child: FutureBuilder<List<StoryItem>>(
+                  future: _storiesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('Ошибка загрузки историй: ${snapshot.error}'),
+                        ),
+                      );
+                    }
+                    final stories = snapshot.data ?? const <StoryItem>[];
+                    if (stories.isEmpty) {
+                      return const Center(child: Text('Истории пока отсутствуют'));
+                    }
+                    final prepared = List<StoryData>.generate(stories.length, (index) {
+                      final s = stories[index];
+                      return StoryData(
+                        title: s.title,
+                        content: s.content,
+                        color: _storyBorderColor(index),
+                        imageUrl: s.imageUrl, // ✅ _fixUrl уже вызван в fromJson
+                      );
+                    });
+
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: prepared.length,
+                      itemBuilder: (context, index) {
+                        return _buildStoryItem(context, index, prepared[index], prepared);
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              FutureBuilder<List<NewsItem>>(
+                future: _newsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('Ошибка загрузки историй: ${snapshot.error}'),
-                      ),
+                    return const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(),
                     );
                   }
-                  final stories = snapshot.data ?? const <StoryItem>[];
-                  if (stories.isEmpty) {
-                    return const Center(child: Text('Истории пока отсутствуют'));
-                  }
-                  final prepared = List<StoryData>.generate(stories.length, (index) {
-                    final s = stories[index];
-                    return StoryData(
-                      title: s.title,
-                      content: s.content,
-                      color: _storyBorderColor(index),
-                      imageUrl: _toAbsoluteUrl(s.imageUrl),
-                    );
-                  });
 
-                  return ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: prepared.length,
-                    itemBuilder: (context, index) {
-                      return _buildStoryItem(context, index, prepared[index], prepared);
-                    },
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Ошибка загрузки новостей: ${snapshot.error}'),
+                    );
+                  }
+
+                  final news = snapshot.data ?? const <NewsItem>[];
+                  if (news.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Новости пока отсутствуют'),
+                    );
+                  }
+
+                  return Column(
+                    children: news.take(6).map((item) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: _buildNewsCard(item),
+                      );
+                    }).toList(growable: false),
                   );
                 },
               ),
-            ),
-            const SizedBox(height: 24),
-            FutureBuilder<List<NewsItem>>(
-              future: _newsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Ошибка загрузки новостей: ${snapshot.error}'),
-                  );
-                }
-
-                final news = snapshot.data ?? const <NewsItem>[];
-                if (news.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Новости пока отсутствуют'),
-                  );
-                }
-
-                return Column(
-                  children: news.take(6).map((item) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: _buildNewsCard(item),
-                    );
-                  }).toList(growable: false),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -171,12 +175,12 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
             ),
             child: item.imageUrl.isNotEmpty
                 ? Image.network(
-                    _toAbsoluteUrl(item.imageUrl),
-                    width: double.infinity,
-                    height: 180,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _newsPlaceholder(),
-                  )
+              item.imageUrl, // ✅ _fixUrl уже вызван в fromJson
+              width: double.infinity,
+              height: 180,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _newsPlaceholder(),
+            )
                 : _newsPlaceholder(),
           ),
           Padding(
@@ -219,19 +223,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     );
   }
 
-  String _toAbsoluteUrl(String value) {
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    final base = _apiClient.baseUrl.endsWith('/')
-        ? _apiClient.baseUrl.substring(0, _apiClient.baseUrl.length - 1)
-        : _apiClient.baseUrl;
-    if (value.startsWith('/')) {
-      return '$base$value';
-    }
-    return '$base/$value';
-  }
-
   // ПРЯМОУГОЛЬНАЯ КАРТОЧКА ИСТОРИИ С ИЗОБРАЖЕНИЕМ
   Widget _buildStoryItem(
       BuildContext context,
@@ -272,7 +263,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                       height: double.infinity,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        // Если изображение не найдено
                         return Container(
                           color: Colors.grey[300],
                           child: const Center(
@@ -322,6 +312,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
       ),
     );
   }
+
   // ОТКРЫТЬ ПРОСМОТР ИСТОРИЙ
   Future<void> _openStoryViewer(
       BuildContext context,
@@ -350,6 +341,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
     return palette[index % palette.length];
   }
 }
+
 // МОДЕЛЬ ДАННЫХ ИСТОРИИ
 class StoryData {
   final String title;
@@ -363,6 +355,7 @@ class StoryData {
     required this.imageUrl,
   });
 }
+
 // ЭКРАН ПРОСМОТРА ИСТОРИЙ
 class StoryViewerScreen extends StatefulWidget {
   final int initialIndex;
@@ -375,11 +368,13 @@ class StoryViewerScreen extends StatefulWidget {
   @override
   State<StoryViewerScreen> createState() => _StoryViewerScreenState();
 }
+
 class _StoryViewerScreenState extends State<StoryViewerScreen> {
   late int _currentIndex;
   late PageController _pageController;
   Timer? _timer;
   double _progress = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -387,12 +382,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _pageController = PageController(initialPage: _currentIndex);
     _startTimer();
   }
+
   @override
   void dispose() {
     _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
+
   // ЗАПУСТИТЬ ТАЙМЕР 5 СЕКУНД
   void _startTimer() {
     _timer?.cancel();
@@ -407,6 +404,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       });
     });
   }
+
   // СЛЕДУЮЩАЯ ИСТОРИЯ
   void _nextStory() {
     if (_currentIndex < widget.stories.length - 1) {
@@ -423,6 +421,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       Navigator.pop(context);
     }
   }
+
   // ПРЕДЫДУЩАЯ ИСТОРИЯ
   void _previousStory() {
     if (_currentIndex > 0) {
@@ -437,6 +436,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       _startTimer();
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -445,12 +445,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         onTapUp: (details) {
           final screenWidth = MediaQuery.of(context).size.width;
           final tapPosition = details.globalPosition.dx;
-          // Левая половина - предыдущая история
           if (tapPosition < screenWidth / 2) {
             _previousStory();
-          }
-          // Правая половина - следующая история
-          else {
+          } else {
             _nextStory();
           }
         },
@@ -470,7 +467,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 return _buildStoryContent(widget.stories[index]);
               },
             ),
-            // ПРОГРЕСС БАР СВЕРХУ — одна полоска на текущую историю
+            // ПРОГРЕСС БАР СВЕРХУ
             SafeArea(
               child: Column(
                 children: [
@@ -539,7 +536,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 ],
               ),
             ),
-            // Кнопка «Подробнее» внизу — прозрачно-матовая
+            // Кнопка «Подробнее» внизу
             Positioned(
               bottom: 40, left: 16, right: 16,
               child: ClipRRect(
@@ -556,7 +553,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                           context: context,
                           backgroundColor: Colors.transparent,
                           isScrollControlled: true,
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                          shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                           builder: (_) => ClipRRect(
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                             child: BackdropFilter(
@@ -565,21 +563,33 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                                 color: Colors.white.withOpacity(0.30),
                                 padding: const EdgeInsets.all(24),
                                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(story.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  Text(story.title,
+                                      style: const TextStyle(
+                                          fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                                   const SizedBox(height: 12),
-                                  Text(story.content, style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5)),
+                                  Text(story.content,
+                                      style: const TextStyle(
+                                          fontSize: 15, color: Colors.white, height: 1.5)),
                                   const SizedBox(height: 20),
-                                  SizedBox(width: double.infinity, child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                      child: ElevatedButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.2), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                                        child: const Text('Закрыть'),
-                                      ),
-                                    ),
-                                  )),
+                                  SizedBox(
+                                      width: double.infinity,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                          child: ElevatedButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.white.withOpacity(0.2),
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12)),
+                                                elevation: 0),
+                                            child: const Text('Закрыть'),
+                                          ),
+                                        ),
+                                      )),
                                 ]),
                               ),
                             ),
@@ -590,7 +600,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                       child: const Padding(
                         padding: EdgeInsets.symmetric(vertical: 14),
                         child: Center(
-                          child: Text('Подробнее', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white)),
+                          child: Text('Подробнее',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white)),
                         ),
                       ),
                     ),
@@ -603,7 +617,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       ),
     );
   }
-  // КОНТЕНТ ОДНОЙ ИСТОРИИ С ИЗОБРАЖЕНИЕМ (без текста контента)
+
   Widget _buildStoryContent(StoryData story) {
     return Stack(
       fit: StackFit.expand,

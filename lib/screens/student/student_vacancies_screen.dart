@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
-import '../../data/api/api_base_url.dart';
-import '../widgets/centered_app_bar_title.dart'; // ✅ Добавлен импорт
+import '../../data/session/app_session.dart';
+import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
 
 class StudentVacanciesScreen extends StatefulWidget {
@@ -12,9 +12,9 @@ class StudentVacanciesScreen extends StatefulWidget {
 }
 
 class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
-  final _apiClient = ApiClient(
-    baseUrl: resolveApiBaseUrl(),
-  );
+  // ✅ ИСПРАВЛЕНО: используем единственный глобальный ApiClient с куками
+  final _apiClient = AppSession.apiClient;
+
   final _searchController = TextEditingController();
   late Future<List<VacancyItem>> _vacanciesFuture;
 
@@ -47,7 +47,7 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const CenteredAppBarTitle(), // ✅ Используем ваш компонент AppBar
+        title: const CenteredAppBarTitle(),
       ),
       body: Column(
         children: [
