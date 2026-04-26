@@ -12,10 +12,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String _kServerBase = 'http://kucersta.beget.tech';
 
+/// Превращает относительный путь, который пришёл с бэкенда, в абсолютный URL.
+///
+/// Сервер сейчас отдаёт пути уже с префиксом `/api/public/...`
+/// (например, `/api/public/uploads/foo.png`,
+/// `/api/public/uploads/partners/reshetnev.png`).
+/// Раньше сервер отдавал короткие пути вида `/uploads/...`, поэтому здесь
+/// поддерживаем оба формата:
+///   * если строка уже начинается с `http(s)://` — возвращаем как есть;
+///   * если начинается с `/api/` — просто приклеиваем хост;
+///   * если начинается с `/uploads/` или другого относительного пути —
+///     добавляем `/api/public` перед ним (legacy-формат).
 String _fixUrl(String url) {
   if (url.isEmpty) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/api/')) return '$_kServerBase$url';
   if (url.startsWith('/')) return '$_kServerBase/api/public$url';
-  return url;
+  return '$_kServerBase/api/public/$url';
 }
 
 /// Собираем реальный http.Client.

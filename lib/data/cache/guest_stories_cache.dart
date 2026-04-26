@@ -8,7 +8,8 @@ import '../api/api_client.dart';
 class GuestStoriesCache {
   GuestStoriesCache._();
 
-  static const _key = 'guest_stories_list_v1';
+  // v2: бамп после исправления двойных /api/api/ в image_url.
+  static const _key = 'guest_stories_list_v2';
 
   static Future<List<StoryItem>?> read() async {
     final prefs = await SharedPreferences.getInstance();

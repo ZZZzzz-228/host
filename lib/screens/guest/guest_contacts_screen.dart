@@ -462,16 +462,28 @@ class _GuestContactsScreenState extends State<GuestContactsScreen> {
   }
 
   String _toAbsoluteUrl(String value) {
+    if (value.isEmpty) return value;
     if (value.startsWith('http://') || value.startsWith('https://')) {
       return value;
     }
-    final base = _apiClient.baseUrl.endsWith('/')
-        ? _apiClient.baseUrl.substring(0, _apiClient.baseUrl.length - 1)
-        : _apiClient.baseUrl;
-    if (value.startsWith('/')) {
-      return '$base$value';
+    final rawBase = _apiClient.baseUrl;
+    final trimmedBase = rawBase.endsWith('/') ? rawBase.substring(0, rawBase.length - 1) : rawBase;
+    String origin = trimmedBase;
+    try {
+      final uri = Uri.parse(trimmedBase);
+      if (uri.hasScheme && uri.host.isNotEmpty) {
+        origin = uri.hasPort
+            ? '${uri.scheme}://${uri.host}:${uri.port}'
+            : '${uri.scheme}://${uri.host}';
+      }
+    } catch (_) {}
+    if (value.startsWith('/api/')) {
+      return '$origin$value';
     }
-    return '$base/$value';
+    if (value.startsWith('/')) {
+      return '$origin/api/public$value';
+    }
+    return '$origin/api/public/$value';
   }
 
   Color? _parseColorHex(String value) {

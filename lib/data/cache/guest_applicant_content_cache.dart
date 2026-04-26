@@ -9,8 +9,9 @@ import '../api/api_client.dart';
 class GuestApplicantContentCache {
   GuestApplicantContentCache._();
 
-  static const _specialtiesKey = 'guest_applicant_specialties_v1';
-  static const _educationKey = 'guest_applicant_education_v1';
+  // v2: бамп ключей после перехода на новый формат image_url с бэкенда (`/api/public/uploads/...`).
+  static const _specialtiesKey = 'guest_applicant_specialties_v2';
+  static const _educationKey = 'guest_applicant_education_v2';
 
   static Future<List<SpecialtyItem>?> readSpecialties() async {
     final prefs = await SharedPreferences.getInstance();

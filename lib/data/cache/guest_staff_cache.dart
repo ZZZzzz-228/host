@@ -8,7 +8,8 @@ import '../api/api_client.dart';
 class GuestStaffCache {
   GuestStaffCache._();
 
-  static const _key = 'guest_staff_list_v1';
+  // v2: бамп после исправления двойных /api/api/ в photo_url.
+  static const _key = 'guest_staff_list_v2';
 
   static Future<List<StaffMemberItem>?> read() async {
     final prefs = await SharedPreferences.getInstance();
