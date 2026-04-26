@@ -12,5 +12,5 @@ String resolveApiBaseUrl() {
     return fromEnv;
   }
   // Один и тот же URL для всех платформ — продакшн на Beget.
-  return 'http://kucersta.beget.tech/api/public';
+  return 'http://kucersta.beget.tech/api';
 }

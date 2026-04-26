@@ -14,7 +14,7 @@ const String _kServerBase = 'http://kucersta.beget.tech';
 
 String _fixUrl(String url) {
   if (url.isEmpty) return url;
-  if (url.startsWith('/')) return '$_kServerBase$url';
+  if (url.startsWith('/')) return '$_kServerBase/api/public$url';
   return url;
 }
 
@@ -257,7 +257,7 @@ class ApiClient {
 
   Future<void> warmup() async {
     try {
-      await _get('/health');
+      await _get('/public/health');
     } catch (_) {}
   }
 
@@ -281,7 +281,7 @@ class ApiClient {
 
   Future<List<ContactItem>> fetchContacts() async {
     try {
-      final response = await _get('/contacts');
+      final response = await _get('/public/contacts');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -301,14 +301,14 @@ class ApiClient {
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
-      final uri = _u('/vacancies').replace(
+      final uri = _u('/public/vacancies').replace(
         queryParameters: (query != null && query.trim().isNotEmpty)
             ? {'q': query.trim()}
             : null,
       );
 
       final response = await _executeRequest(
-            (headers) => http.get(uri, headers: headers),
+            (client, headers) => client.get(uri, headers: headers),
       );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -329,7 +329,7 @@ class ApiClient {
 
   Future<List<NewsItem>> fetchNews() async {
     try {
-      final response = await _get('/news');
+      final response = await _get('/public/news');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -349,7 +349,7 @@ class ApiClient {
 
   Future<List<StaffMemberItem>> fetchStaff() async {
     try {
-      final response = await _get('/staff');
+      final response = await _get('/public/staff');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -369,7 +369,7 @@ class ApiClient {
 
   Future<List<StoryItem>> fetchStories() async {
     try {
-      final response = await _get('/stories');
+      final response = await _get('/public/stories');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
