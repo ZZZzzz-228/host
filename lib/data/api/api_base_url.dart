@@ -1,23 +1,16 @@
-import 'dart:io';
+// Web-safe определение базового URL API.
+// Раньше здесь был импорт `dart:io`, который ломает сборку под Web.
 import 'package:flutter/foundation.dart';
 
+/// Базовый URL для всех HTTP-запросов к бэкенду на Beget.
+///
+/// При желании можно переопределить через `--dart-define=API_BASE_URL=...`
+/// при сборке (например, для локального dev-сервера).
 String resolveApiBaseUrl() {
   const fromEnv = String.fromEnvironment('API_BASE_URL');
   if (fromEnv.isNotEmpty) {
     return fromEnv;
   }
-
-  if (kIsWeb) {
-    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
-  }
-
-  if (Platform.isAndroid) {
-    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
-  }
-
-  if (Platform.isIOS) {
-    return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
-  }
-
-  return 'http://kucersta.beget.tech/api/public';  // ← убрали пробел
+  // Один и тот же URL для всех платформ — продакшн на Beget.
+  return 'http://kucersta.beget.tech/api/public';
 }

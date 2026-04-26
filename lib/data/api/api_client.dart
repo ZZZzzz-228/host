@@ -4,7 +4,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' as io_client;
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,17 +18,43 @@ String _fixUrl(String url) {
   return url;
 }
 
+/// Собираем реальный http.Client.
+/// На mobile используем свой dart:io HttpClient с короткими таймаутами
+/// и принудительным IPv4 — это избавляет от зависаний IPv6 dual-stack DNS
+/// и от багов keep-alive Beget.
+http.Client _buildHttpClient() {
+  if (kIsWeb) {
+    return http.Client();
+  }
+  final ioc = HttpClient()
+    ..connectionTimeout = const Duration(seconds: 10)
+    ..idleTimeout = const Duration(seconds: 5)
+    ..autoUncompress = true
+    ..userAgent = 'AKSIBGU/1.0 (Dart)';
+  // Принудительно берём только IPv4 — избегаем IPv6 dual-stack зависаний
+  // на мобильных сетях.
+  ioc.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
+    return Socket.startConnect(
+      url.host,
+      url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80),
+      sourceAddress: InternetAddress.anyIPv4,
+    );
+  };
+  return io_client.IOClient(ioc);
+}
+
 class ApiClient {
-  ApiClient({required this.baseUrl});
+  ApiClient({required this.baseUrl}) : _http = _buildHttpClient();
 
   final String baseUrl;
+  final http.Client _http;
   String? _token;
   String? _challengeCookie;
   bool _challengeLoaded = false;
 
   static const _challengeCookieKey = 'aksibgu_challenge_cookie_v1';
-  final Duration _timeout = const Duration(seconds: 20);
-  static const int _maxRetries = 3;
+  final Duration _timeout = const Duration(seconds: 12);
+  static const int _maxRetries = 2;
 
   String? get token => _token;
 
@@ -58,6 +86,8 @@ class ApiClient {
       'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
+      // Connection: close — лечит зависания keep-alive с Beget
+      'Connection': 'close',
       'Referer': '$baseUrl/',
       'User-Agent':
       'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
@@ -69,7 +99,7 @@ class ApiClient {
   }
 
   Future<http.Response> _executeRequest(
-      Future<http.Response> Function(Map<String, String> headers) requestBuilder,
+      Future<http.Response> Function(http.Client client, Map<String, String> headers) requestBuilder,
       ) async {
     await _ensureChallengeLoaded();
 
@@ -77,33 +107,50 @@ class ApiClient {
     for (var attempt = 0; attempt < _maxRetries; attempt++) {
       try {
         var response =
-        await requestBuilder(_defaultHeaders()).timeout(_timeout);
+        await requestBuilder(_http, _defaultHeaders()).timeout(_timeout);
 
         final solvedCookie = _solveChallengeCookie(response);
         if (solvedCookie != null) {
           await _persistChallengeCookie(solvedCookie);
-          response = await requestBuilder(_defaultHeaders()).timeout(_timeout);
+          response = await requestBuilder(_http, _defaultHeaders()).timeout(_timeout);
 
           if (_solveChallengeCookie(response) != null) {
-            lastError = ApiException('Challenge re-issued, retrying...');
+            lastError = ApiException('Challenge re-issued');
+            debugPrint('[ApiClient] challenge re-issued, retry');
             continue;
           }
+        }
+
+        // Если вернулся HTML вместо JSON — это bot challenge, который мы не распознали. Ретраим.
+        final ct = (response.headers['content-type'] ?? '').toLowerCase();
+        if (response.statusCode == 200 && ct.contains('text/html')) {
+          debugPrint('[ApiClient] HTML response on attempt ${attempt + 1}, retry');
+          lastError = ApiException('Server returned HTML instead of JSON');
+          await Future<void>.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+          continue;
         }
 
         return response;
       } on TimeoutException {
         lastError = ApiException('API timeout ($_timeout) at $baseUrl');
+        debugPrint('[ApiClient] timeout #${attempt + 1} on $baseUrl');
       } on HandshakeException {
         lastError = ApiException(
           'SSL error while connecting to $baseUrl. Check the HTTPS certificate.',
         );
+        debugPrint('[ApiClient] SSL handshake error');
       } on SocketException catch (e) {
         lastError = ApiException('Cannot connect to $baseUrl: ${e.message}');
+        debugPrint('[ApiClient] socket error: ${e.message}');
       } on http.ClientException catch (e) {
         lastError =
             ApiException('Network client error at $baseUrl: ${e.message}');
+        debugPrint('[ApiClient] http client error: ${e.message}');
+      } catch (e) {
+        lastError = ApiException('Unexpected error: $e');
+        debugPrint('[ApiClient] unexpected: $e');
       }
-      await Future<void>.delayed(Duration(milliseconds: 200 * (attempt + 1)));
+      await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
     }
 
     if (lastError is ApiException) throw lastError;
@@ -112,7 +159,7 @@ class ApiClient {
 
   Future<http.Response> _get(String path, {Map<String, String>? headers}) {
     return _executeRequest(
-          (effectiveHeaders) => http.get(
+          (client, effectiveHeaders) => client.get(
         _u(path),
         headers: {...effectiveHeaders, ...?headers},
       ),
@@ -125,7 +172,7 @@ class ApiClient {
         Object? body,
       }) {
     return _executeRequest(
-          (effectiveHeaders) => http.post(
+          (client, effectiveHeaders) => client.post(
         _u(path),
         headers: {...effectiveHeaders, ...?headers},
         body: body,
@@ -135,7 +182,7 @@ class ApiClient {
 
   Future<http.Response> _delete(String path, {Map<String, String>? headers}) {
     return _executeRequest(
-          (effectiveHeaders) => http.delete(
+          (client, effectiveHeaders) => client.delete(
         _u(path),
         headers: {...effectiveHeaders, ...?headers},
       ),
@@ -246,7 +293,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(ContactItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchContacts failed: $e');
       return _fallbackContacts();
     }
   }
@@ -273,7 +321,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(VacancyItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchVacancies failed: $e');
       return _fallbackVacancies(query);
     }
   }
@@ -292,7 +341,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(NewsItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchNews failed: $e');
       return _fallbackNews();
     }
   }
@@ -311,7 +361,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(StaffMemberItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchStaff failed: $e');
       return _fallbackStaff();
     }
   }
@@ -330,7 +381,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(StoryItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchStories failed: $e');
       return _fallbackStories();
     }
   }
@@ -347,7 +399,8 @@ class ApiClient {
       final data = json['data'];
       if (data is! Map<String, dynamic>) return _fallbackPageBySlug(slug);
       return PageContentItem.fromJson(data);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchPageBySlug failed: $e');
       return _fallbackPageBySlug(slug);
     }
   }
@@ -366,7 +419,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(SpecialtyItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchSpecialties failed: $e');
       return _fallbackSpecialties();
     }
   }
@@ -385,7 +439,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(EducationProgramItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchEducationPrograms failed: $e');
       return _fallbackEducationPrograms();
     }
   }
@@ -404,7 +459,8 @@ class ApiClient {
           .whereType<Map<String, dynamic>>()
           .map(PartnerItem.fromJson)
           .toList(growable: false);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchPartners failed: $e');
       return _fallbackPartners();
     }
   }
@@ -426,7 +482,8 @@ class ApiClient {
           .map(CareerTestQuestion.fromJson)
           .toList(growable: false);
       return CareerTestPayload(questions: questions);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[ApiClient] fetchCareerTest failed: $e');
       return _fallbackCareerTest();
     }
   }
@@ -561,7 +618,7 @@ class ApiClient {
       return (json['id'] as num?)?.toInt() ?? 0;
     }
 
-    Future<http.Response> sendMultipart(Map<String, String> headers) async {
+    Future<http.Response> sendMultipart(http.Client client, Map<String, String> headers) async {
       final request =
       http.MultipartRequest('POST', _u('/public/applications'));
       request.headers.addAll(headers);
@@ -580,7 +637,7 @@ class ApiClient {
         }
       }
 
-      final streamed = await request.send();
+      final streamed = await client.send(request);
       return http.Response.fromStream(streamed);
     }
 
