@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../widgets/centered_app_bar_title.dart';
 
 /// Шапка главного экрана абитуриента: при скролле «Центр карьеры» исчезает, по центру — «Главная».
+/// Матовый прозрачный фон показывается ВСЕГДА (как во «Все специальности» при скролле).
 class AboutCollegeFrostedHeader extends StatelessWidget {
   const AboutCollegeFrostedHeader({super.key, required this.showCenterTitle});
 
@@ -16,13 +17,10 @@ class AboutCollegeFrostedHeader extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 220),
-            opacity: showCenterTitle ? 1 : 0,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: Container(color: Colors.white.withOpacity(0.72)),
-            ),
+          // Матовая прозрачная «чёлка» — всегда видна, как во «Все специальности».
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+            child: Container(color: Colors.white.withOpacity(0.72)),
           ),
           SafeArea(
             bottom: false,
@@ -109,50 +107,50 @@ class AboutCollegePushedHeader extends StatelessWidget {
                   Expanded(
                     child: alwaysShowTitle
                         ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: Text(
-                                scrolledTitle,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
-                                ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          scrolledTitle,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    )
+                        : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 220),
+                          opacity: showScrolledTitle ? 0 : 1,
+                          child: showBranding ? const CenteredAppBarTitle() : const SizedBox.shrink(),
+                        ),
+                        AnimatedOpacity(
+                          duration: const Duration(milliseconds: 220),
+                          opacity: showScrolledTitle ? 1 : 0,
+                          child: AnimatedSlide(
+                            duration: const Duration(milliseconds: 220),
+                            offset: showScrolledTitle ? Offset.zero : const Offset(0, -0.15),
+                            child: Text(
+                              scrolledTitle,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
                               ),
                             ),
-                          )
-                        : Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              AnimatedOpacity(
-                                duration: const Duration(milliseconds: 220),
-                                opacity: showScrolledTitle ? 0 : 1,
-                                child: showBranding ? const CenteredAppBarTitle() : const SizedBox.shrink(),
-                              ),
-                              AnimatedOpacity(
-                                duration: const Duration(milliseconds: 220),
-                                opacity: showScrolledTitle ? 1 : 0,
-                                child: AnimatedSlide(
-                                  duration: const Duration(milliseconds: 220),
-                                  offset: showScrolledTitle ? Offset.zero : const Offset(0, -0.15),
-                                  child: Text(
-                                    scrolledTitle,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
                           ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 48),
                 ],

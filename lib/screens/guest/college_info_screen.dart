@@ -3,41 +3,25 @@ import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+import 'about_college_headers.dart';
 
 String _toAbsoluteUrl(String baseUrl, String value) {
-  if (value.isEmpty) return value;
   if (value.startsWith('http://') || value.startsWith('https://')) {
     return value;
   }
-  final trimmedBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-  final origin = _serverOrigin(trimmedBase);
-  if (value.startsWith('/api/')) {
-    return '$origin$value';
-  }
+  final base = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
   if (value.startsWith('/')) {
-    return '$origin/api/public$value';
+    return '$base$value';
   }
-  return '$origin/api/public/$value';
-}
-
-String _serverOrigin(String baseUrl) {
-  try {
-    final uri = Uri.parse(baseUrl);
-    if (uri.hasScheme && uri.host.isNotEmpty) {
-      return uri.hasPort
-          ? '${uri.scheme}://${uri.host}:${uri.port}'
-          : '${uri.scheme}://${uri.host}';
-    }
-  } catch (_) {}
-  return baseUrl;
+  return '$base/$value';
 }
 
 Widget _imageFromPath(
-  String baseUrl,
-  String path, {
-  required BoxFit fit,
-  Widget? errorFallback,
-}) {
+    String baseUrl,
+    String path, {
+      required BoxFit fit,
+      Widget? errorFallback,
+    }) {
   final p = path.trim();
   if (p.isEmpty) {
     return errorFallback ?? const SizedBox.shrink();
@@ -70,36 +54,52 @@ Color? _parseColorHexString(String value) {
   return Color(parsed);
 }
 
-IconData _cmsMaterialIconByName(String name) {
-  switch (name.trim()) {
-    case 'people':
-      return Icons.people;
-    case 'auto_stories':
-      return Icons.auto_stories;
-    case 'emoji_events':
-      return Icons.emoji_events;
-    case 'business':
-      return Icons.business;
+IconData _cmsMaterialIconByName(String iconName) {
+  switch (iconName.trim()) {
     case 'school':
       return Icons.school;
-    case 'groups':
-      return Icons.groups;
-    case 'rocket_launch':
-      return Icons.rocket_launch;
-    case 'computer':
-      return Icons.computer;
-    case 'handshake':
-      return Icons.handshake;
-    case 'trending_up':
-      return Icons.trending_up;
-    case 'military_tech':
-      return Icons.military_tech;
-    case 'workspace_premium':
-      return Icons.workspace_premium;
+    case 'star':
+      return Icons.star;
+    case 'people':
+      return Icons.people;
+    case 'public':
+      return Icons.public;
+    case 'business':
+      return Icons.business;
+    case 'engineering':
+      return Icons.engineering;
     case 'science':
       return Icons.science;
-    case 'diversity_3':
-      return Icons.diversity_3;
+    case 'computer':
+      return Icons.computer;
+    case 'menu_book':
+      return Icons.menu_book;
+    case 'rocket_launch':
+      return Icons.rocket_launch;
+    case 'emoji_events':
+      return Icons.emoji_events;
+    case 'flag':
+      return Icons.flag;
+    case 'verified':
+      return Icons.verified;
+    case 'auto_awesome':
+      return Icons.auto_awesome;
+    case 'workspace_premium':
+      return Icons.workspace_premium;
+    case 'apartment':
+      return Icons.apartment;
+    case 'home_work':
+      return Icons.home_work;
+    case 'sports_esports':
+      return Icons.sports_esports;
+    case 'fitness_center':
+      return Icons.fitness_center;
+    case 'restaurant':
+      return Icons.restaurant;
+    case 'local_library':
+      return Icons.local_library;
+    case 'lightbulb':
+      return Icons.lightbulb;
     default:
       return Icons.info_outline;
   }
@@ -117,16 +117,66 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
   final ApiClient _api = AppSession.apiClient;
   late Future<PageContentItem?> _pageFuture;
 
+  // Контроллер скролла + флаг для прозрачно-матовой «чёлки» как во «Все специальности».
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrolledTitle = false;
+
   @override
   void initState() {
     super.initState();
     _pageFuture = _api.fetchPageBySlug('about-college');
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final show = _scrollController.offset > 10;
+    if (show != _showScrolledTitle) {
+      setState(() => _showScrolledTitle = show);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _onRefresh() async {
     final f = _api.fetchPageBySlug('about-college');
     setState(() => _pageFuture = f);
     await f;
+  }
+
+  /// Собираем Scaffold с прозрачно-матовым SliverAppBar (как «Все специальности»).
+  Widget _buildScaffold({required String title, required Widget body}) {
+    return Scaffold(
+      body: NestedScrollView(
+        controller: _scrollController,
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              pinned: true,
+              floating: false,
+              snap: false,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              automaticallyImplyLeading: false,
+              toolbarHeight: 74,
+              flexibleSpace: AboutCollegePushedHeader(
+                showScrolledTitle: _showScrolledTitle,
+                onBack: () => Navigator.pop(context),
+                scrolledTitle: title,
+                alwaysShowTitle: true,
+              ),
+            ),
+          ];
+        },
+        body: body,
+      ),
+    );
   }
 
   @override
@@ -136,20 +186,14 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
       future: _pageFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null) {
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-              title: const Text('О колледже'),
-            ),
+          return _buildScaffold(
+            title: 'О колледже',
             body: const Center(child: CircularProgressIndicator()),
           );
         }
         if (snapshot.hasError) {
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-              title: const Text('О колледже'),
-            ),
+          return _buildScaffold(
+            title: 'О колледже',
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -161,11 +205,8 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
 
         final page = snapshot.data;
         if (page == null && snapshot.connectionState == ConnectionState.done) {
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-              title: const Text('О колледже'),
-            ),
+          return _buildScaffold(
+            title: 'О колледже',
             body: const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -187,29 +228,25 @@ class _CollegeInfoScreenState extends State<CollegeInfoScreen> {
         final infrastructureText = (page?.infrastructureText ?? '').trim();
         final stats = (page?.stats ?? const <PageStatCms>[])
             .where((s) =>
-                s.iconName.trim().isNotEmpty &&
-                s.value.trim().isNotEmpty &&
-                s.label.trim().isNotEmpty)
+        s.iconName.trim().isNotEmpty &&
+            s.value.trim().isNotEmpty &&
+            s.label.trim().isNotEmpty)
             .toList(growable: false);
         final advantages = (page?.advantages ?? const <PageCmsCard>[])
             .where((c) =>
-                c.iconName.trim().isNotEmpty &&
-                c.title.trim().isNotEmpty &&
-                c.text.trim().isNotEmpty)
+        c.iconName.trim().isNotEmpty &&
+            c.title.trim().isNotEmpty &&
+            c.text.trim().isNotEmpty)
             .toList(growable: false);
         final achievements = (page?.achievements ?? const <PageCmsCard>[])
             .where((c) =>
-                c.iconName.trim().isNotEmpty &&
-                c.title.trim().isNotEmpty &&
-                c.text.trim().isNotEmpty)
+        c.iconName.trim().isNotEmpty &&
+            c.title.trim().isNotEmpty &&
+            c.text.trim().isNotEmpty)
             .toList(growable: false);
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-            centerTitle: true,
-            title: Text(appBarTitle.isNotEmpty ? appBarTitle : 'О колледже'),
-          ),
+        return _buildScaffold(
+          title: appBarTitle.isNotEmpty ? appBarTitle : 'О колледже',
           body: HapticRefreshIndicator(
             color: const Color(0xFF4A90E2),
             onRefresh: _onRefresh,

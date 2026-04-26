@@ -343,7 +343,8 @@ class _EventsFeedScreenState extends State<EventsFeedScreen> {
                           overflow: isSelected ? TextOverflow.visible : TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.45),
                         ),
-                        if (isSelected) ...[
+
+                      if (isSelected) ...[
                           const SizedBox(height: 12),
                           const Text('Программа', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
                           const SizedBox(height: 6),
@@ -361,6 +362,7 @@ class _EventsFeedScreenState extends State<EventsFeedScreen> {
                             ),
                           ),
                         ],
+
                         const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
