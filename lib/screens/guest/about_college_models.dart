@@ -93,20 +93,14 @@ class StoryData {
   final String title;
   final String content;
   final Color color;
-  final String imagePath;
-  final String date;
-  final String time;
-  final String location;
-  final String schedule;
+  final String imagePath;            // обложка (первое фото)
+  final List<String> imagePaths;     // все фото истории — для пролистывания и Bento Grid
   StoryData({
     required this.title,
     required this.content,
     required this.color,
     required this.imagePath,
-    required this.date,
-    required this.time,
-    required this.location,
-    required this.schedule,
+    this.imagePaths = const [],
   });
 }
 

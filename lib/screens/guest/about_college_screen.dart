@@ -227,15 +227,15 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
   }
 
   StoryData _storyFromApi(StoryItem item) {
+    final urls = item.imageUrls.where((u) => u.isNotEmpty).toList(growable: false);
     return StoryData(
       title: item.title,
       content: item.content,
       color: _storyColor(item.sortOrder),
-      imagePath: item.imageUrl.isNotEmpty ? item.imageUrl : 'assets/images/application_logo/icon42.png',
-      date: 'Дата уточняется',
-      time: 'Время уточняется',
-      location: 'Место уточняется',
-      schedule: item.content,
+      imagePath: item.imageUrl.isNotEmpty
+          ? item.imageUrl
+          : (urls.isNotEmpty ? urls.first : 'assets/images/application_logo/icon42.png'),
+      imagePaths: urls,
     );
   }
 
@@ -625,16 +625,12 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: isViewed ? Colors.grey : story.color, width: 3)),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(9),
-            child: Stack(fit: StackFit.expand, children: [
-              aboutCollegeImageFromPath(
-                baseUrl,
-                story.imagePath,
-                fit: BoxFit.cover,
-                errorFallback: Container(color: Colors.grey[300], child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
-              ),
-              Align(alignment: Alignment.bottomCenter, child: Container(height: 60, decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withOpacity(0.7)])))),
-              Align(alignment: Alignment.bottomLeft, child: Padding(padding: const EdgeInsets.all(8.0), child: Text(story.title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)))),
-            ]),
+            child: aboutCollegeImageFromPath(
+              baseUrl,
+              story.imagePath,
+              fit: BoxFit.cover,
+              errorFallback: Container(color: Colors.grey[300], child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
+            ),
           ),
         ),
       ),

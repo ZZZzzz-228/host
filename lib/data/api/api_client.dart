@@ -850,21 +850,54 @@ class StoryItem {
     required this.title,
     required this.content,
     required this.imageUrl,
+    required this.imageUrls,
     required this.sortOrder,
   });
 
   final int id;
   final String title;
   final String content;
-  final String imageUrl;
+  final String imageUrl;          // обложка для совместимости
+  final List<String> imageUrls;   // все фото истории
   final int sortOrder;
 
   factory StoryItem.fromJson(Map<String, dynamic> json) {
+    // 1) Парсим images_json — может прийти как List, либо как JSON-строка
+    final raw = json['images_json'];
+    final List<String> parsed = <String>[];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is String && item.isNotEmpty) {
+          parsed.add(_fixUrl(item));
+        }
+      }
+    } else if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          for (final item in decoded) {
+            if (item is String && item.isNotEmpty) {
+              parsed.add(_fixUrl(item));
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2) Старое одиночное поле image_url — обложка
+    final cover = _fixUrl((json['image_url'] ?? '').toString());
+
+    // 3) Если images_json пустой — кладём в него хотя бы обложку
+    final urls = parsed.isNotEmpty
+        ? parsed
+        : (cover.isNotEmpty ? [cover] : const <String>[]);
+
     return StoryItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
-      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
+      imageUrl: cover.isNotEmpty ? cover : (urls.isNotEmpty ? urls.first : ''),
+      imageUrls: urls,
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
     );
   }
@@ -874,6 +907,7 @@ class StoryItem {
     'title': title,
     'content': content,
     'image_url': imageUrl,
+    'images_json': imageUrls,
     'sort_order': sortOrder,
   };
 }
