@@ -270,7 +270,7 @@ class ApiClient {
 
   Future<void> warmup() async {
     try {
-      await _get('/public/health');
+      await _get('/health');
     } catch (_) {}
   }
 
@@ -294,7 +294,7 @@ class ApiClient {
 
   Future<List<ContactItem>> fetchContacts() async {
     try {
-      final response = await _get('/public/contacts');
+      final response = await _get('/contacts');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -314,7 +314,7 @@ class ApiClient {
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
-      final uri = _u('/public/vacancies').replace(
+      final uri = _u('/vacancies').replace(
         queryParameters: (query != null && query.trim().isNotEmpty)
             ? {'q': query.trim()}
             : null,
@@ -342,7 +342,7 @@ class ApiClient {
 
   Future<List<NewsItem>> fetchNews() async {
     try {
-      final response = await _get('/public/news');
+      final response = await _get('/news');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -362,7 +362,7 @@ class ApiClient {
 
   Future<List<StaffMemberItem>> fetchStaff() async {
     try {
-      final response = await _get('/public/staff');
+      final response = await _get('/staff');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -382,7 +382,7 @@ class ApiClient {
 
   Future<List<StoryItem>> fetchStories() async {
     try {
-      final response = await _get('/public/stories');
+      final response = await _get('/stories');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -402,7 +402,7 @@ class ApiClient {
 
   Future<PageContentItem?> fetchPageBySlug(String slug) async {
     try {
-      final response = await _get('/public/pages/$slug');
+      final response = await _get('/pages/$slug');
       final json = _decodeJson(response.body);
       if (response.statusCode == 404) return _fallbackPageBySlug(slug);
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -420,7 +420,7 @@ class ApiClient {
 
   Future<List<SpecialtyItem>> fetchSpecialties() async {
     try {
-      final response = await _get('/public/specialties');
+      final response = await _get('/specialties');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -440,7 +440,7 @@ class ApiClient {
 
   Future<List<EducationProgramItem>> fetchEducationPrograms() async {
     try {
-      final response = await _get('/public/education-programs');
+      final response = await _get('/education-programs');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(json['message']?.toString() ??
@@ -460,7 +460,7 @@ class ApiClient {
 
   Future<List<PartnerItem>> fetchPartners() async {
     try {
-      final response = await _get('/public/partners');
+      final response = await _get('/partners');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -480,7 +480,7 @@ class ApiClient {
 
   Future<CareerTestPayload> fetchCareerTest() async {
     try {
-      final response = await _get('/public/career-test');
+      final response = await _get('/career-test');
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -613,7 +613,7 @@ class ApiClient {
   }) async {
     if (files.isEmpty) {
       final response = await _post(
-        '/public/applications',
+        '/applications',
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'type': type,
@@ -633,7 +633,7 @@ class ApiClient {
 
     Future<http.Response> sendMultipart(http.Client client, Map<String, String> headers) async {
       final request =
-      http.MultipartRequest('POST', _u('/public/applications'));
+      http.MultipartRequest('POST', _u('/applications'));
       request.headers.addAll(headers);
       request.fields['type'] = type;
       request.fields['full_name'] = fullName;
