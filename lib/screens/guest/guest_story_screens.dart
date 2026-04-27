@@ -260,16 +260,23 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     final baseUrl = AppSession.apiClient.baseUrl;
     final photos = _photosOf(story);
     return Stack(fit: StackFit.expand, children: [
+      // Фон чёрный — на нём будут видны «полосы» сверху/снизу или по бокам,
+      // когда соотношение сторон фото не совпадает с экраном.
+      Container(color: Colors.black),
+      // Сами фотки — пролистываются внутри одной истории.
+      // BoxFit.contain — фото показывается ЦЕЛИКОМ, без растяжения и обрезки.
       PageView.builder(
         controller: _photoController,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: photos.length,
         onPageChanged: (i) => setState(() => _photoIndex = i),
-        itemBuilder: (context, i) => aboutCollegeImageFromPath(
-          baseUrl,
-          photos[i],
-          fit: BoxFit.cover,
-          errorFallback: Container(color: Colors.black),
+        itemBuilder: (context, i) => Center(
+          child: aboutCollegeImageFromPath(
+            baseUrl,
+            photos[i],
+            fit: BoxFit.contain,
+            errorFallback: Container(color: Colors.black),
+          ),
         ),
       ),
       // Тёмный градиент для читаемости заголовка
