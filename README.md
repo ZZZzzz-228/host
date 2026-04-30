@@ -74,49 +74,6 @@
 - Android Studio 
 - Git и GitHub для контроля версий
 
-## Backend и база данных
-
-Монолитные данные вынесены в backend:
-
-- `backend/public/index.php` — REST API
-- `backend/database/schema.sql` — структура MySQL
-- `backend/database/seed.sql` — стартовые данные
-- `backend/config.example.php` — пример конфигурации подключения
-
-### Быстрый запуск backend
-
-1. Скопировать `backend/config.example.php` в `backend/config.php` и заполнить доступы к БД.
-2. Создать БД в phpMyAdmin и импортировать `schema.sql`, затем `seed.sql`.
-3. Запустить API:
-   ```bash
-   cd backend/public
-   php -S 127.0.0.1:8080
-   ```
-4. В Flutter логин использует `API_BASE_URL` (по умолчанию `http://10.0.2.2:8080` для Android-эмулятора).
-
-## Запуск проекта
-
-1. Установить Flutter SDK:  
-   https://docs.flutter.dev/get-started/install
-
-   
-3. Клонировать репозиторий:
-```bash
-  git clone https://github.com/ZZZzzz-228/aksibguu.git
-   cd aksibguu
-
-   
-3. Установить зависимости:
-    flutter pub get
-
-    
-4. Запустить приложение:
-    flutter run
-
-    
-5. Сборка APK
-    flutter build apk --split-per-abi
-```
 
 
 
