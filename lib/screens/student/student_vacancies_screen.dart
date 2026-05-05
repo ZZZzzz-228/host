@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
-import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+import 'career_ui.dart';
 
 class StudentVacanciesScreen extends StatefulWidget {
   const StudentVacanciesScreen({super.key});
@@ -45,10 +46,7 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const CenteredAppBarTitle(),
-      ),
+      appBar: CareerUi.appBar('Вакансии'),
       body: Column(
         children: [
           // Поиск и фильтр
@@ -104,33 +102,15 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
                 future: _vacanciesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(child: CircularProgressIndicator()),
-                      ],
-                    );
+                    return CareerUi.loading();
                   }
                   if (snapshot.hasError) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text('Ошибка загрузки вакансий: ${snapshot.error}'),
-                      ],
-                    );
+                    return CareerUi.error('Ошибка загрузки вакансий: ${snapshot.error}');
                   }
 
                   final vacancies = snapshot.data ?? const <VacancyItem>[];
                   if (vacancies.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 80),
-                        Center(child: Text('Вакансии не найдены')),
-                      ],
-                    );
+                    return CareerUi.empty('Вакансии не найдены');
                   }
 
                   return ListView.separated(
@@ -293,7 +273,9 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
                   children: [
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          _showVacancyDetails(vacancy);
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4A90E2),
                           foregroundColor: Colors.white,
@@ -308,7 +290,9 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          _showVacancyDetails(vacancy);
+                        },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF4A90E2),
                           side: const BorderSide(color: Color(0xFF4A90E2)),
@@ -328,5 +312,65 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
         ],
       ),
     );
+  }
+
+  void _showVacancyDetails(VacancyItem vacancy) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  vacancy.title,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(vacancy.company, style: const TextStyle(color: Colors.black54)),
+                const SizedBox(height: 12),
+                Text(vacancy.description.isEmpty ? 'Описание отсутствует' : vacancy.description),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openDefaultEmail(),
+                        icon: const Icon(Icons.mail_outline),
+                        label: const Text('Откликнуться'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4A90E2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openDefaultEmail() async {
+    final uri = Uri.parse('mailto:kucersemen18@gmail.com');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть почтовый клиент')),
+      );
+    }
   }
 }

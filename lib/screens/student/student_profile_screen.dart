@@ -4,6 +4,10 @@ import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
 import 'student_portfolio_screen.dart';
 import 'student_resume_screen.dart';
+import 'student_vacancies_screen.dart';
+import 'student_contacts_screen.dart';
+import 'student_events_screen.dart';
+import '../shared/shared_partners_screen.dart';
 import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
 
@@ -123,9 +127,58 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
             const SizedBox(height: 12),
             _buildProfileButton(
               context,
+              'Вакансии',
+              Icons.work_outline,
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentVacanciesScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildProfileButton(
+              context,
+              'Партнеры',
+              Icons.handshake_outlined,
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SharedPartnersScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildProfileButton(
+              context,
+              'Контакты',
+              Icons.contacts_outlined,
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentContactsScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildProfileButton(
+              context,
+              'Мероприятия',
+              Icons.event_outlined,
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentEventsScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildProfileButton(
+              context,
               'Выйти',
               Icons.logout,
                   () {
+                AppSession.apiClient.logout();
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(

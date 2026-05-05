@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -64,14 +63,40 @@ class ApiClient {
   String? _token;
   String? _challengeCookie;
   bool _challengeLoaded = false;
+  bool _tokenLoaded = false;
 
   static const _challengeCookieKey = 'aksibgu_challenge_cookie_v1';
+  static const _tokenKey = 'aksibgu_bearer_token_v1';
   final Duration _timeout = const Duration(seconds: 12);
   static const int _maxRetries = 2;
 
   String? get token => _token;
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
+
+  Future<void> _ensureTokenLoaded() async {
+    if (_tokenLoaded) return;
+    _tokenLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_tokenKey);
+      if (saved != null && saved.isNotEmpty) {
+        _token = saved;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistToken(String? value) async {
+    _token = (value != null && value.isNotEmpty) ? value : null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_token == null) {
+        await prefs.remove(_tokenKey);
+      } else {
+        await prefs.setString(_tokenKey, _token!);
+      }
+    } catch (_) {}
+  }
 
   Future<void> _ensureChallengeLoaded() async {
     if (_challengeLoaded) return;
@@ -107,6 +132,7 @@ class ApiClient {
       'X-Requested-With': 'XMLHttpRequest',
       if (_challengeCookie != null && _challengeCookie!.isNotEmpty)
         'Cookie': '__test=$_challengeCookie',
+      if (_token != null && _token!.isNotEmpty) 'Authorization': 'Bearer $_token',
       ...?headers,
     };
   }
@@ -114,6 +140,7 @@ class ApiClient {
   Future<http.Response> _executeRequest(
       Future<http.Response> Function(http.Client client, Map<String, String> headers) requestBuilder,
       ) async {
+    await _ensureTokenLoaded();
     await _ensureChallengeLoaded();
 
     Object? lastError;
@@ -286,10 +313,14 @@ class ApiClient {
 
     final json = _decodeJson(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      _token = json['token']?.toString();
+      await _persistToken(json['token']?.toString());
       return json;
     }
     throw ApiException(json['message']?.toString() ?? 'Login failed');
+  }
+
+  Future<void> logout() async {
+    await _persistToken(null);
   }
 
   Future<List<ContactItem>> fetchContacts() async {
@@ -475,6 +506,43 @@ class ApiClient {
     } catch (e) {
       debugPrint('[ApiClient] fetchPartners failed: $e');
       return _fallbackPartners();
+    }
+  }
+
+  Future<List<EventItem>> fetchEvents() async {
+    try {
+      final response = await _get('/events');
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load events');
+      }
+      final data = json['data'];
+      if (data is! List) return _fallbackEvents();
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(EventItem.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchEvents failed: $e');
+      try {
+        final stories = await fetchStories();
+        return stories
+            .map((story) => EventItem(
+                  id: story.id,
+                  title: story.title,
+                  description: story.content,
+                  category: 'meetup',
+                  coverUrl: story.imageUrl,
+                  externalUrl: '',
+                  startsAt: null,
+                  endsAt: null,
+                  location: '',
+                ))
+            .toList(growable: false);
+      } catch (_) {
+        return _fallbackEvents();
+      }
     }
   }
 
@@ -693,6 +761,7 @@ class ApiClient {
   List<SpecialtyItem> _fallbackSpecialties() => const [];
   List<EducationProgramItem> _fallbackEducationPrograms() => const [];
   List<PartnerItem> _fallbackPartners() => const [];
+  List<EventItem> _fallbackEvents() => const [];
   CareerTestPayload _fallbackCareerTest() =>
       const CareerTestPayload(questions: []);
 }
@@ -995,7 +1064,7 @@ class PageContentItem {
     final out = <PageStatCms>[];
     for (final item in raw) {
       if (item is Map) {
-        final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
+        final m = Map<String, dynamic>.from(item);
         out.add(PageStatCms(
           iconName: (m['icon'] ?? '').toString(),
           value: (m['value'] ?? '').toString(),
@@ -1012,7 +1081,7 @@ class PageContentItem {
     final out = <PageCmsCard>[];
     for (final item in raw) {
       if (item is Map) {
-        final m = Map<String, dynamic>.from(item as Map<dynamic, dynamic>);
+        final m = Map<String, dynamic>.from(item);
         out.add(PageCmsCard(
           iconName: (m['icon'] ?? '').toString(),
           title: (m['title'] ?? '').toString(),
@@ -1211,6 +1280,56 @@ class PartnerItem {
     'website_url': websiteUrl,
     'logo_url': logoUrl,
   };
+}
+
+class EventItem {
+  EventItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.coverUrl,
+    required this.externalUrl,
+    required this.startsAt,
+    required this.endsAt,
+    required this.location,
+  });
+
+  final int id;
+  final String title;
+  final String description;
+  final String category;
+  final String coverUrl;
+  final String externalUrl;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final String location;
+
+  factory EventItem.fromJson(Map<String, dynamic> json) {
+    DateTime? starts;
+    final startsRaw = json['starts_at']?.toString();
+    if (startsRaw != null && startsRaw.isNotEmpty) {
+      starts = DateTime.tryParse(startsRaw);
+    }
+
+    DateTime? ends;
+    final endsRaw = json['ends_at']?.toString();
+    if (endsRaw != null && endsRaw.isNotEmpty) {
+      ends = DateTime.tryParse(endsRaw);
+    }
+
+    return EventItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      category: (json['category'] ?? '').toString(),
+      coverUrl: _fixUrl((json['cover_url'] ?? '').toString()),
+      externalUrl: (json['external_url'] ?? '').toString(),
+      startsAt: starts,
+      endsAt: ends,
+      location: (json['location'] ?? '').toString(),
+    );
+  }
 }
 
 class CareerTestPayload {

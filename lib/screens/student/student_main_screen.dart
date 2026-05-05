@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'student_contacts_screen.dart';
 import 'student_schedule_screen.dart';
 import 'student_home_screen.dart';
-import 'student_vacancies_screen.dart';
+import 'student_career_screen.dart';
 import 'student_profile_screen.dart';
 class StudentMainScreen extends StatefulWidget {
   const StudentMainScreen({super.key});
@@ -15,7 +15,7 @@ class _StudentMainScreenState extends State<StudentMainScreen> {
     const StudentContactsScreen(),
     const StudentScheduleScreen(),
     const StudentHomeScreen(),
-    const StudentVacanciesScreen(),
+    const StudentCareerScreen(),
     const StudentProfileScreen(),
   ];
   @override
@@ -60,7 +60,7 @@ class _StudentMainScreenState extends State<StudentMainScreen> {
                 index: 3,
                 activeIcon: 'assets/icons/student/vacancies_active.png',
                 inactiveIcon: 'assets/icons/student/vacancies.png',
-                label: 'Вакансии',
+                label: 'Карьера',
               ),
               _buildNavItem(
                 index: 4,
