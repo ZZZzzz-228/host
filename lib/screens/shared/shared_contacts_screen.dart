@@ -17,7 +17,14 @@ import '../widgets/centered_app_bar_title.dart';
 /// Это «один источник истины»: правишь карточку в админке (vk_pending → нет,
 /// в /admin/contacts.php и /admin/staff.php) — меняется и для гостя, и для студента.
 class SharedContactsScreen extends StatefulWidget {
-  const SharedContactsScreen({super.key});
+  const SharedContactsScreen({
+    super.key,
+    this.contactsCategory,
+    this.staffDepartment,
+  });
+
+  final String? contactsCategory;
+  final String? staffDepartment;
 
   @override
   State<SharedContactsScreen> createState() => _SharedContactsScreenState();
@@ -59,10 +66,11 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
 
   Future<void> _loadContacts() async {
     try {
-      final list = await _apiClient.fetchContacts();
+      final list = await _apiClient.fetchContacts(category: widget.contactsCategory);
+      final unique = _dedupeContacts(list);
       if (!mounted) return;
       setState(() {
-        _contacts = list;
+        _contacts = unique;
         _contactsLoading = false;
         _contactsError = null;
       });
@@ -75,8 +83,28 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     }
   }
 
+  List<ContactItem> _dedupeContacts(List<ContactItem> source) {
+    final seen = <String>{};
+    final out = <ContactItem>[];
+    for (final c in source) {
+      final normalizedValue = c.value
+          .trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(RegExp(r'[()\-]'), '');
+      final key = '${c.type}|$normalizedValue';
+      if (seen.add(key)) {
+        out.add(c);
+      }
+    }
+    return out;
+  }
+
   Future<void> _loadStaff() async {
-    final cached = await GuestStaffCache.read();
+    final staffScope = (widget.staffDepartment == null || widget.staffDepartment!.isEmpty)
+        ? 'all'
+        : widget.staffDepartment!;
+    final cached = await GuestStaffCache.read(scope: staffScope);
     if (!mounted) return;
     if (cached != null && cached.isNotEmpty) {
       setState(() {
@@ -87,8 +115,10 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       });
     }
     try {
-      final fresh = await _apiClient.fetchStaff();
-      await GuestStaffCache.save(fresh);
+      final fresh = (widget.staffDepartment == null || widget.staffDepartment!.isEmpty)
+          ? await _apiClient.fetchStaff()
+          : await _apiClient.fetchStaff(department: widget.staffDepartment);
+      await GuestStaffCache.save(fresh, scope: staffScope);
       if (!mounted) return;
       setState(() {
         _staffList = fresh;

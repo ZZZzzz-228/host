@@ -323,9 +323,16 @@ class ApiClient {
     await _persistToken(null);
   }
 
-  Future<List<ContactItem>> fetchContacts() async {
+  Future<List<ContactItem>> fetchContacts({String? category}) async {
     try {
-      final response = await _get('/contacts');
+      final uri = _u('/contacts').replace(
+        queryParameters: (category != null && category.trim().isNotEmpty)
+            ? {'category': category.trim()}
+            : null,
+      );
+      final response = await _executeRequest(
+            (client, headers) => client.get(uri, headers: headers),
+      );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -342,6 +349,9 @@ class ApiClient {
       return _fallbackContacts();
     }
   }
+
+  Future<List<ContactItem>> fetchCareerCenterContacts() =>
+      fetchContacts(category: 'career_center');
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
@@ -391,9 +401,16 @@ class ApiClient {
     }
   }
 
-  Future<List<StaffMemberItem>> fetchStaff() async {
+  Future<List<StaffMemberItem>> fetchStaff({String? department}) async {
     try {
-      final response = await _get('/staff');
+      final uri = _u('/staff').replace(
+        queryParameters: (department != null && department.trim().isNotEmpty)
+            ? {'department': department.trim()}
+            : null,
+      );
+      final response = await _executeRequest(
+            (client, headers) => client.get(uri, headers: headers),
+      );
       final json = _decodeJson(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw ApiException(
@@ -410,6 +427,9 @@ class ApiClient {
       return _fallbackStaff();
     }
   }
+
+  Future<List<StaffMemberItem>> fetchCareerCenterStaff() =>
+      fetchStaff(department: 'career_center');
 
   Future<List<StoryItem>> fetchStories() async {
     try {

@@ -8,12 +8,11 @@ import '../api/api_client.dart';
 class GuestStaffCache {
   GuestStaffCache._();
 
-  // v2: бамп после исправления двойных /api/api/ в photo_url.
-  static const _key = 'guest_staff_list_v2';
+  static String _keyForScope(String scope) => 'guest_staff_list_v4_$scope';
 
-  static Future<List<StaffMemberItem>?> read() async {
+  static Future<List<StaffMemberItem>?> read({String scope = 'all'}) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(_keyForScope(scope));
     if (raw == null || raw.isEmpty) return null;
     final decoded = jsonDecode(raw);
     if (decoded is! List<dynamic>) return null;
@@ -27,9 +26,9 @@ class GuestStaffCache {
     }
   }
 
-  static Future<void> save(List<StaffMemberItem> staff) async {
+  static Future<void> save(List<StaffMemberItem> staff, {String scope = 'all'}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = jsonEncode(staff.map((e) => e.toJson()).toList());
-    await prefs.setString(_key, raw);
+    await prefs.setString(_keyForScope(scope), raw);
   }
 }

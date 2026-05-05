@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../shared/shared_partners_screen.dart';
-import 'student_contacts_screen.dart';
 import 'student_events_screen.dart';
 import 'student_portfolio_screen.dart';
+import 'student_career_contacts_screen.dart';
 import 'student_resume_screen.dart';
 import 'student_vacancies_screen.dart';
 import '../widgets/centered_app_bar_title.dart';
@@ -62,7 +62,7 @@ class StudentCareerScreen extends StatelessWidget {
               icon: Icons.contacts_outlined,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const StudentContactsScreen()),
+                MaterialPageRoute(builder: (_) => const StudentCareerContactsScreen()),
               ),
             ),
             _CareerTile(
