@@ -33,7 +33,6 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
   final PageController _educationController = PageController(viewportFraction: 0.86, initialPage: 0);
   int _currentEducationPage = 0;
   final ApiClient _api = AppSession.apiClient;
-  PageContentItem? _cmsAboutCollege;
   List<Specialty> _specialtiesUi = const [];
   List<Partner> _partnersUi = const [];
   List<EducationProgram> _educationProgramsUi = const [];
@@ -96,10 +95,6 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
 
     if (mounted) {
       setState(() {});
-    }
-
-    if (page != null && mounted) {
-      setState(() => _cmsAboutCollege = page);
     }
 
     if (cmsSpecialties != null && mounted) {

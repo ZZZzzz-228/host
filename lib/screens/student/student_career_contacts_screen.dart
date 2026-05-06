@@ -10,6 +10,7 @@ class StudentCareerContactsScreen extends StatelessWidget {
     return const SharedContactsScreen(
       contactsCategory: 'career_center',
       staffDepartment: 'career_center',
+      showBackButton: true,
     );
   }
 }

@@ -63,8 +63,8 @@ class _StudentResumeScreenState extends State<StudentResumeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CareerUi.appBar('Резюме'),
+    return CareerUi.scaffold(
+      title: 'Резюме',
       floatingActionButton: FloatingActionButton(
         onPressed: _addResume,
         child: const Icon(Icons.add),

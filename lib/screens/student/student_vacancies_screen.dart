@@ -45,8 +45,8 @@ class _StudentVacanciesScreenState extends State<StudentVacanciesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CareerUi.appBar('Вакансии'),
+    return CareerUi.scaffold(
+      title: 'Вакансии',
       body: Column(
         children: [
           // Поиск и фильтр

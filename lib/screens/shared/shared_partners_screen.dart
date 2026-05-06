@@ -31,8 +31,8 @@ class _SharedPartnersScreenState extends State<SharedPartnersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CareerUi.appBar('Партнеры'),
+    return CareerUi.scaffold(
+      title: 'Партнеры',
       body: HapticRefreshIndicator(
         color: const Color(0xFF4A90E2),
         onRefresh: _onRefresh,

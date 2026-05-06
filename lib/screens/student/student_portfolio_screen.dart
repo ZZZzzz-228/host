@@ -66,8 +66,8 @@ class _StudentPortfolioScreenState extends State<StudentPortfolioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CareerUi.appBar('Портфолио'),
+    return CareerUi.scaffold(
+      title: 'Портфолио',
       floatingActionButton: FloatingActionButton(
         onPressed: _addItem,
         child: const Icon(Icons.add),

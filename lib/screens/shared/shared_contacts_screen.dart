@@ -21,10 +21,14 @@ class SharedContactsScreen extends StatefulWidget {
     super.key,
     this.contactsCategory,
     this.staffDepartment,
+    this.excludeCareerCenterStaff = false,
+    this.showBackButton = false,
   });
 
   final String? contactsCategory;
   final String? staffDepartment;
+  final bool excludeCareerCenterStaff;
+  final bool showBackButton;
 
   @override
   State<SharedContactsScreen> createState() => _SharedContactsScreenState();
@@ -118,10 +122,12 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       final fresh = (widget.staffDepartment == null || widget.staffDepartment!.isEmpty)
           ? await _apiClient.fetchStaff()
           : await _apiClient.fetchStaff(department: widget.staffDepartment);
-      await GuestStaffCache.save(fresh, scope: staffScope);
+      final unique = _dedupeStaff(fresh);
+      final filtered = await _excludeCareerCenterStaffIfNeeded(unique);
+      await GuestStaffCache.save(filtered, scope: staffScope);
       if (!mounted) return;
       setState(() {
-        _staffList = fresh;
+        _staffList = filtered;
         _staffInitialLoading = false;
         _staffFromCacheOnly = false;
         _staffError = null;
@@ -139,6 +145,45 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
         }
       });
     }
+  }
+
+  List<StaffMemberItem> _dedupeStaff(List<StaffMemberItem> source) {
+    final seen = <String>{};
+    final out = <StaffMemberItem>[];
+    for (final s in source) {
+      final key = _staffIdentityKey(s);
+      if (seen.add(key)) {
+        out.add(s);
+      }
+    }
+    return out;
+  }
+
+  Future<List<StaffMemberItem>> _excludeCareerCenterStaffIfNeeded(
+    List<StaffMemberItem> source,
+  ) async {
+    if (!widget.excludeCareerCenterStaff) return source;
+    try {
+      final career = await _apiClient.fetchStaff(department: 'career_center');
+      final careerKeys = career.map(_staffIdentityKey).toSet();
+      return source.where((s) => !careerKeys.contains(_staffIdentityKey(s))).toList();
+    } catch (_) {
+      return source;
+    }
+  }
+
+  String _staffIdentityKey(StaffMemberItem s) {
+    String norm(String value) => value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[()\-]'), '');
+    final email = norm(s.email);
+    final phone = norm(s.phone);
+    final name = norm(s.fullName);
+    if (email.isNotEmpty) return 'email|$email';
+    if (phone.isNotEmpty) return 'phone|$phone';
+    return 'name|$name';
   }
 
   Future<void> _onRefresh() async {
@@ -218,7 +263,13 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
               scrolledUnderElevation: 0,
               backgroundColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
-              automaticallyImplyLeading: false,
+              automaticallyImplyLeading: widget.showBackButton,
+              leading: widget.showBackButton
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    )
+                  : null,
               toolbarHeight: 74,
               flexibleSpace: _FrostedContactsHeader(showCenterTitle: _showHeaderTitle),
             ),

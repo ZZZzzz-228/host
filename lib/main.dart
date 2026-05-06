@@ -104,13 +104,10 @@ Future<void> _preloadContent() async {
         await GuestStaffCache.save(items);
       }
     }).catchError((_) {}),
-    api.fetchPartners().catchError((_) => <PartnerItemDummy>[]),
+    api.fetchPartners().then((_) {}).catchError((_) {}),
     api.fetchPageBySlug('about-college').catchError((_) => null),
   ]);
 }
-
-// фиктивный тип, чтобы catchError не ругался на типы
-class PartnerItemDummy {}
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

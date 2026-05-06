@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 /// Базовый URL для всех HTTP-запросов к бэкенду на Beget.
 ///
 /// На хостинге Beget API живёт под /api/public/, поэтому в baseUrl сразу

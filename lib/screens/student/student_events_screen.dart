@@ -31,8 +31,8 @@ class _StudentEventsScreenState extends State<StudentEventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: CareerUi.appBar('Мероприятия'),
+    return CareerUi.scaffold(
+      title: 'Мероприятия',
       body: HapticRefreshIndicator(
         color: const Color(0xFF4A90E2),
         onRefresh: _onRefresh,
