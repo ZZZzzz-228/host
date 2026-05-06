@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
@@ -115,6 +116,20 @@ class _StudentPortfolioScreenState extends State<StudentPortfolioScreen> {
                               const SizedBox(height: 2),
                               Text(item.description, maxLines: 2, overflow: TextOverflow.ellipsis),
                             ],
+                            if (item.projectUrl.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              GestureDetector(
+                                onTap: () => _openProjectUrl(item.projectUrl),
+                                child: const Text(
+                                  'Открыть ссылку проекта',
+                                  style: TextStyle(
+                                    color: Color(0xFF4A90E2),
+                                    decoration: TextDecoration.underline,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -133,6 +148,21 @@ class _StudentPortfolioScreenState extends State<StudentPortfolioScreen> {
           },
         ),
       ),
+    );
+  }
+
+  Future<void> _openProjectUrl(String raw) async {
+    final value = raw.trim();
+    if (value.isEmpty) return;
+    final url = value.contains('://') ? value : 'https://$value';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Не удалось открыть ссылку проекта')),
     );
   }
 }

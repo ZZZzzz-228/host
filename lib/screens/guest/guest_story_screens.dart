@@ -275,6 +275,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             baseUrl,
             photos[i],
             fit: BoxFit.contain,
+            headers: AppSession.apiClient.imageHeaders(),
             errorFallback: Container(color: Colors.black),
           ),
         ),

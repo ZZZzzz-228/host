@@ -6,9 +6,5 @@ class StudentContactsScreen extends StatelessWidget {
   const StudentContactsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const SharedContactsScreen(
-        contactsCategory: 'college',
-        staffDepartment: 'college',
-        excludeCareerCenterStaff: true,
-      );
+  Widget build(BuildContext context) => const SharedContactsScreen();
 }

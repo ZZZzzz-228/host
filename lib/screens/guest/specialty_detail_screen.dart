@@ -23,6 +23,7 @@ class SpecialtyDetailScreen extends StatelessWidget {
                 baseUrl,
                 specialty.imagePath,
                 fit: BoxFit.cover,
+                headers: AppSession.apiClient.imageHeaders(),
                 errorFallback: const SizedBox(),
               ),
               Container(color: Colors.black.withOpacity(0.28)),

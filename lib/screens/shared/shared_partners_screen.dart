@@ -101,6 +101,7 @@ class _PartnerCard extends StatelessWidget {
               child: item.logoUrl.isNotEmpty
                   ? Image.network(
                       item.logoUrl,
+                      headers: AppSession.apiClient.imageHeaders(),
                       width: 56,
                       height: 56,
                       fit: BoxFit.cover,
