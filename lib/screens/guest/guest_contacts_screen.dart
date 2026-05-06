@@ -6,5 +6,8 @@ class GuestContactsScreen extends StatelessWidget {
   const GuestContactsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const SharedContactsScreen();
+  Widget build(BuildContext context) => const SharedContactsScreen(
+        contactsCategory: 'career_center',
+        staffDepartment: 'career_center',
+      );
 }

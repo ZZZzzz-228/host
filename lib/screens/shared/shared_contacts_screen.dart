@@ -23,12 +23,14 @@ class SharedContactsScreen extends StatefulWidget {
     this.staffDepartment,
     this.excludeCareerCenterStaff = false,
     this.showBackButton = false,
+    this.showInfoCard = true,
   });
 
   final String? contactsCategory;
   final String? staffDepartment;
   final bool excludeCareerCenterStaff;
   final bool showBackButton;
+  final bool showInfoCard;
 
   @override
   State<SharedContactsScreen> createState() => _SharedContactsScreenState();
@@ -65,7 +67,11 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
   }
 
   Future<void> _loadEverything() async {
-    await Future.wait([_loadContacts(), _loadStaff()]);
+    if (widget.showInfoCard) {
+      await Future.wait([_loadContacts(), _loadStaff()]);
+      return;
+    }
+    await _loadStaff();
   }
 
   Future<void> _loadContacts() async {
@@ -282,8 +288,10 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
-              _buildInfoCard(),
-              const SizedBox(height: 24),
+              if (widget.showInfoCard) ...[
+                _buildInfoCard(),
+                const SizedBox(height: 24),
+              ],
               _buildStaffSection(),
             ],
           ),

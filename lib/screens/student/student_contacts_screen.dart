@@ -7,8 +7,7 @@ class StudentContactsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const SharedContactsScreen(
-        contactsCategory: 'college',
-        staffDepartment: 'college',
-        excludeCareerCenterStaff: true,
+        contactsCategory: 'career_center',
+        staffDepartment: 'career_center',
       );
 }
