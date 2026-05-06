@@ -104,7 +104,6 @@ class _EventCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: Image.network(
                 event.coverUrl,
-                headers: AppSession.apiClient.imageHeaders(),
                 height: 140,
                 width: double.infinity,
                 fit: BoxFit.cover,

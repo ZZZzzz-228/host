@@ -70,9 +70,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
 
   Future<void> _loadContacts() async {
     try {
-      final list = widget.contactsCategory == 'career_center'
-          ? await _apiClient.fetchCareerCenterContacts()
-          : await _apiClient.fetchContacts(category: widget.contactsCategory);
+      final list = await _apiClient.fetchContacts(category: widget.contactsCategory);
       final unique = _dedupeContacts(list);
       if (!mounted) return;
       setState(() {
@@ -121,11 +119,9 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       });
     }
     try {
-      final fresh = widget.staffDepartment == 'career_center'
-          ? await _apiClient.fetchCareerCenterStaff()
-          : (widget.staffDepartment == null || widget.staffDepartment!.isEmpty)
-              ? await _apiClient.fetchStaff()
-              : await _apiClient.fetchStaff(department: widget.staffDepartment);
+      final fresh = (widget.staffDepartment == null || widget.staffDepartment!.isEmpty)
+          ? await _apiClient.fetchStaff()
+          : await _apiClient.fetchStaff(department: widget.staffDepartment);
       final unique = _dedupeStaff(fresh);
       final filtered = await _excludeCareerCenterStaffIfNeeded(unique);
       await GuestStaffCache.save(filtered, scope: staffScope);
@@ -152,10 +148,11 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
   }
 
   List<StaffMemberItem> _dedupeStaff(List<StaffMemberItem> source) {
-    final seen = <int>{};
+    final seen = <String>{};
     final out = <StaffMemberItem>[];
     for (final s in source) {
-      if (seen.add(s.id)) {
+      final key = _staffIdentityKey(s);
+      if (seen.add(key)) {
         out.add(s);
       }
     }
@@ -579,7 +576,6 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     final absolute = _toAbsoluteUrl(photoUrl.trim());
     return Image.network(
       absolute,
-      headers: _apiClient.imageHeaders(),
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => fallback,
     );

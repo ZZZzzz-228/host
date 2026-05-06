@@ -624,7 +624,6 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
               baseUrl,
               story.imagePath,
               fit: BoxFit.cover,
-              headers: AppSession.apiClient.imageHeaders(),
               errorFallback: Container(color: Colors.grey[300], child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
             ),
           ),

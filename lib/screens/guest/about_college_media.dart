@@ -36,7 +36,6 @@ Widget aboutCollegeImageFromPath(
   String path, {
   required BoxFit fit,
   Widget? errorFallback,
-  Map<String, String>? headers,
 }) {
   final p = path.trim();
   if (p.isEmpty) {
@@ -51,7 +50,6 @@ Widget aboutCollegeImageFromPath(
   }
   return Image.network(
     aboutCollegeAbsoluteUrl(baseUrl, p),
-    headers: headers,
     fit: fit,
     errorBuilder: (context, error, stackTrace) => errorFallback ?? const SizedBox.shrink(),
   );

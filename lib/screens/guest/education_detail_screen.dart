@@ -26,7 +26,6 @@ class EducationDetailScreen extends StatelessWidget {
                   baseUrl,
                   program.imagePath,
                   fit: BoxFit.cover,
-                  headers: AppSession.apiClient.imageHeaders(),
                   errorFallback: Container(
                     width: 80,
                     height: 80,

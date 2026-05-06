@@ -9,7 +9,7 @@ import 'package:http/io_client.dart' as io_client;
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String _kServerBase = 'https://kucersta.beget.tech';
+const String _kServerBase = 'http://kucersta.beget.tech';
 
 /// Превращает относительный путь, который пришёл с бэкенда, в абсолютный URL.
 ///
@@ -23,38 +23,11 @@ const String _kServerBase = 'https://kucersta.beget.tech';
 ///   * если начинается с `/uploads/` или другого относительного пути —
 ///     добавляем `/api/public` перед ним (legacy-формат).
 String _fixUrl(String url) {
-  var value = url.trim();
-  if (value.isEmpty) return value;
-  value = value.replaceAll('\\', '/');
-
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    // iOS can block insecure HTTP images. Upgrade our own host to HTTPS.
-    if (value.startsWith('http://kucersta.beget.tech/')) {
-      return 'https://kucersta.beget.tech/${value.substring('http://kucersta.beget.tech/'.length)}';
-    }
-    return value;
-  }
-  if (value.startsWith('//')) return 'https:$value';
-
-  // Backend can store host without scheme: kucersta.beget.tech/path
-  final hostLike = RegExp(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(/.*)?$');
-  if (hostLike.hasMatch(value)) return 'https://$value';
-
-  // Handle absolute filesystem paths that include /api/public/uploads/...
-  final apiPublicPos = value.indexOf('/api/public/');
-  if (apiPublicPos >= 0) {
-    final tail = value.substring(apiPublicPos);
-    return '$_kServerBase$tail';
-  }
-  final uploadsPos = value.indexOf('/uploads/');
-  if (uploadsPos >= 0) {
-    final tail = value.substring(uploadsPos);
-    return '$_kServerBase/api/public$tail';
-  }
-
-  if (value.startsWith('/api/')) return '$_kServerBase$value';
-  if (value.startsWith('/')) return '$_kServerBase/api/public$value';
-  return '$_kServerBase/api/public/$value';
+  if (url.isEmpty) return url;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/api/')) return '$_kServerBase$url';
+  if (url.startsWith('/')) return '$_kServerBase/api/public$url';
+  return '$_kServerBase/api/public/$url';
 }
 
 /// Собираем реальный http.Client.
@@ -161,17 +134,6 @@ class ApiClient {
         'Cookie': '__test=$_challengeCookie',
       if (_token != null && _token!.isNotEmpty) 'Authorization': 'Bearer $_token',
       ...?headers,
-    };
-  }
-
-  /// Заголовки для загрузки картинок с того же домена.
-  /// Важно: Beget/антибот может требовать cookie (__test) и на `/uploads/...`,
-  /// а `Image.network` ходит без нашего http-клиента.
-  Map<String, String> imageHeaders() {
-    final cookie = _challengeCookie;
-    if (cookie == null || cookie.isEmpty) return const {};
-    return <String, String>{
-      'Cookie': '__test=$cookie',
     };
   }
 
@@ -388,22 +350,8 @@ class ApiClient {
     }
   }
 
-  Future<List<ContactItem>> fetchCareerCenterContacts() async {
-    try {
-      final response = await _get('/career/contacts');
-      final json = _decodeJson(response.body);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = json['data'];
-        if (data is List) {
-          return data
-              .whereType<Map<String, dynamic>>()
-              .map(ContactItem.fromJson)
-              .toList(growable: false);
-        }
-      }
-    } catch (_) {}
-    return fetchContacts(category: 'career_center');
-  }
+  Future<List<ContactItem>> fetchCareerCenterContacts() =>
+      fetchContacts(category: 'career_center');
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
@@ -480,22 +428,8 @@ class ApiClient {
     }
   }
 
-  Future<List<StaffMemberItem>> fetchCareerCenterStaff() async {
-    try {
-      final response = await _get('/career/staff');
-      final json = _decodeJson(response.body);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = json['data'];
-        if (data is List) {
-          return data
-              .whereType<Map<String, dynamic>>()
-              .map(StaffMemberItem.fromJson)
-              .toList(growable: false);
-        }
-      }
-    } catch (_) {}
-    return fetchStaff(department: 'career_center');
-  }
+  Future<List<StaffMemberItem>> fetchCareerCenterStaff() =>
+      fetchStaff(department: 'career_center');
 
   Future<List<StoryItem>> fetchStories() async {
     try {
