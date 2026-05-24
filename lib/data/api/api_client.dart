@@ -1424,7 +1424,6 @@ class StudentResumeItem {
     );
   }
 }
-
 class StudentPortfolioItem {
   StudentPortfolioItem({
     required this.id,
