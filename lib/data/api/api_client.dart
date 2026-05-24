@@ -9,7 +9,7 @@ import 'package:http/io_client.dart' as io_client;
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String _kServerBase = 'http://kucersta.beget.tech';
+const String _kServerBase = 'https://cf990597-wordpress-yndvp.tw1.ru';
 
 /// Превращает относительный путь, который пришёл с бэкенда, в абсолютный URL.
 ///
@@ -43,15 +43,6 @@ http.Client _buildHttpClient() {
     ..idleTimeout = const Duration(seconds: 5)
     ..autoUncompress = true
     ..userAgent = 'AKSIBGU/1.0 (Dart)';
-  // Принудительно берём только IPv4 — избегаем IPv6 dual-stack зависаний
-  // на мобильных сетях.
-  ioc.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) async {
-    return Socket.startConnect(
-      url.host,
-      url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80),
-      sourceAddress: InternetAddress.anyIPv4,
-    );
-  };
   return io_client.IOClient(ioc);
 }
 
