@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../shared/contacts_hub_screen.dart';
+import '../shared/shared_contacts_screen.dart';
 
 class GuestContactsScreen extends StatelessWidget {
   const GuestContactsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const ContactsHubScreen();
+  Widget build(BuildContext context) => const SharedContactsScreen(
+        contactsCategory: 'career_center',
+        staffDepartment: 'career_center',
+      );
 }
