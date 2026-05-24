@@ -69,7 +69,7 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
     if (!mounted) return;
     if (cachedStories != null && cachedStories.isNotEmpty) {
       setState(() {
-        _storiesUi = cachedStories.map(_storyFromApi).toList(growable: false);
+        _storiesUi = cachedStories.map(StoryData.fromApi).toList(growable: false);
       });
     }
 
@@ -113,7 +113,7 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
 
     if (cmsStories != null && mounted) {
       setState(() {
-        _storiesUi = cmsStories.map(_storyFromApi).toList(growable: false);
+        _storiesUi = cmsStories.map(StoryData.fromApi).toList(growable: false);
       });
       await GuestStoriesCache.save(cmsStories);
     }
@@ -219,25 +219,6 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
       format: item.formatText.isNotEmpty ? item.formatText : 'Уточняется',
       imagePath: item.imageUrl.isNotEmpty ? item.imageUrl : 'assets/images/application_logo/icon42.png',
     );
-  }
-
-  StoryData _storyFromApi(StoryItem item) {
-    final urls = item.imageUrls.where((u) => u.isNotEmpty).toList(growable: false);
-    return StoryData(
-      title: item.title,
-      content: item.content,
-      color: _storyColor(item.sortOrder),
-      imagePath: item.imageUrl.isNotEmpty
-          ? item.imageUrl
-          : (urls.isNotEmpty ? urls.first : 'assets/images/application_logo/icon42.png'),
-      imagePaths: urls,
-    );
-  }
-
-  Color _storyColor(int seed) {
-    const palette = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.red];
-    final index = seed < 0 ? 0 : seed % palette.length;
-    return palette[index];
   }
 
   IconData _iconFromName(String iconName) {

@@ -21,6 +21,8 @@ class SharedContactsScreen extends StatefulWidget {
     super.key,
     this.contactsCategory,
     this.staffDepartment,
+    this.placeholderStaff,
+    this.pageTitle,
     this.excludeCareerCenterStaff = false,
     this.showBackButton = false,
     this.showInfoCard = true,
@@ -28,6 +30,8 @@ class SharedContactsScreen extends StatefulWidget {
 
   final String? contactsCategory;
   final String? staffDepartment;
+  final List<StaffMemberItem>? placeholderStaff;
+  final String? pageTitle;
   final bool excludeCareerCenterStaff;
   final bool showBackButton;
   final bool showInfoCard;
@@ -118,7 +122,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     if (!mounted) return;
     if (cached != null && cached.isNotEmpty) {
       setState(() {
-        _staffList = cached;
+        _staffList = _withPlaceholdersIfNeeded(cached);
         _staffInitialLoading = false;
         _staffFromCacheOnly = false;
         _staffError = null;
@@ -133,7 +137,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       await GuestStaffCache.save(filtered, scope: staffScope);
       if (!mounted) return;
       setState(() {
-        _staffList = filtered;
+        _staffList = _withPlaceholdersIfNeeded(filtered);
         _staffInitialLoading = false;
         _staffFromCacheOnly = false;
         _staffError = null;
@@ -143,14 +147,23 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       setState(() {
         _staffInitialLoading = false;
         if (_staffList.isEmpty) {
-          _staffError = e.toString();
+          _staffList = _withPlaceholdersIfNeeded(const []);
+          _staffError = _staffList.isEmpty ? e.toString() : null;
           _staffFromCacheOnly = false;
         } else {
+          _staffList = _withPlaceholdersIfNeeded(_staffList);
           _staffError = null;
           _staffFromCacheOnly = true;
         }
       });
     }
+  }
+
+  List<StaffMemberItem> _withPlaceholdersIfNeeded(List<StaffMemberItem> source) {
+    if (source.isNotEmpty) return source;
+    final placeholders = widget.placeholderStaff;
+    if (placeholders == null || placeholders.isEmpty) return source;
+    return List<StaffMemberItem>.from(placeholders);
   }
 
   List<StaffMemberItem> _dedupeStaff(List<StaffMemberItem> source) {
@@ -277,7 +290,10 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
                     )
                   : null,
               toolbarHeight: 74,
-              flexibleSpace: _FrostedContactsHeader(showCenterTitle: _showHeaderTitle),
+              flexibleSpace: _FrostedContactsHeader(
+                showCenterTitle: _showHeaderTitle,
+                scrolledTitle: widget.pageTitle ?? 'Контакты',
+              ),
             ),
           ];
         },
@@ -652,7 +668,11 @@ class _InfoStat extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 class _FrostedContactsHeader extends StatelessWidget {
   final bool showCenterTitle;
-  const _FrostedContactsHeader({required this.showCenterTitle});
+  final String scrolledTitle;
+  const _FrostedContactsHeader({
+    required this.showCenterTitle,
+    required this.scrolledTitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -694,9 +714,9 @@ class _FrostedContactsHeader extends StatelessWidget {
                   child: AnimatedSlide(
                     duration: const Duration(milliseconds: 220),
                     offset: showCenterTitle ? Offset.zero : const Offset(0, -0.15),
-                    child: const Text(
-                      'Контакты',
-                      style: TextStyle(
+                    child: Text(
+                      scrolledTitle,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: Colors.black87,

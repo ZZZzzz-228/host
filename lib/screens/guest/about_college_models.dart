@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../data/api/api_client.dart';
+
 class FavoriteSpecialtyStore {
   FavoriteSpecialtyStore._();
   static final FavoriteSpecialtyStore instance = FavoriteSpecialtyStore._();
@@ -102,6 +104,26 @@ class StoryData {
     required this.imagePath,
     this.imagePaths = const [],
   });
+
+  /// Единое преобразование API-истории в UI-модель (гость и студент).
+  factory StoryData.fromApi(StoryItem item) {
+    final urls = item.imageUrls.where((u) => u.isNotEmpty).toList(growable: false);
+    return StoryData(
+      title: item.title,
+      content: item.content,
+      color: storyBorderColorFromSeed(item.sortOrder),
+      imagePath: item.imageUrl.isNotEmpty
+          ? item.imageUrl
+          : (urls.isNotEmpty ? urls.first : 'assets/images/application_logo/icon42.png'),
+      imagePaths: urls,
+    );
+  }
+}
+
+Color storyBorderColorFromSeed(int seed) {
+  const palette = [Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.red];
+  final index = seed < 0 ? 0 : seed % palette.length;
+  return palette[index];
 }
 
 class Partner {
