@@ -79,9 +79,7 @@ class _AdaptiveViewport extends StatelessWidget {
 /// Прогрев API + предзагрузка контента во время splash-анимации.
 /// Это даёт мгновенное появление данных на экранах после splash.
 Future<void> _preloadContent() async {
-
   final api = AppSession.apiClient;
-  debugPrint('🔵 API URL: ${api.baseUrl}');
   // Сначала прогреваем cookie через /health
   await api.warmup();
   // Параллельно тянем все основные данные и кэшируем их
