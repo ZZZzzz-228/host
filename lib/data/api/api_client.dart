@@ -1763,6 +1763,7 @@ class StudentResumeFullItem {
     );
   }
 }
+
 class StudentPortfolioItem {
   StudentPortfolioItem({
     required this.id,
