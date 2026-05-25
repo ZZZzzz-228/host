@@ -6,6 +6,7 @@ import 'student_career_contacts_screen.dart';
 import 'student_events_screen.dart';
 import 'student_portfolio_screen.dart';
 import 'student_resume_screen.dart';
+import 'student_universities_screen.dart';
 import 'student_vacancies_screen.dart';
 import 'career_ui.dart';
 
@@ -21,6 +22,7 @@ class StudentCareerScreen extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
+          // ── Шапка-баннер ──────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -57,6 +59,8 @@ class StudentCareerScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
+
+          // ── Разделы карьеры ───────────────────────────────────────────────
           _SectionCard(
             title: 'Разделы карьеры',
             children: [
@@ -72,6 +76,7 @@ class StudentCareerScreen extends StatelessWidget {
                     title: 'Моё портфолио',
                     icon: Icons.folder_open_rounded,
                     subtitle: 'Проекты и достижения',
+                    color: const Color(0xFF4A90E2),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const StudentPortfolioScreen()),
@@ -81,6 +86,7 @@ class StudentCareerScreen extends StatelessWidget {
                     title: 'Создание резюме',
                     icon: Icons.description_rounded,
                     subtitle: 'Подготовка резюме',
+                    color: const Color(0xFF7B61FF),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const StudentResumeScreen()),
@@ -90,15 +96,27 @@ class StudentCareerScreen extends StatelessWidget {
                     title: 'Вакансии',
                     icon: Icons.work_outline_rounded,
                     subtitle: 'Открытые предложения',
+                    color: const Color(0xFF4CAF50),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const StudentVacanciesScreen()),
                     ),
                   ),
                   _CareerTile(
-                    title: 'Партнеры',
+                    title: 'Университеты',
+                    icon: Icons.school_rounded,
+                    subtitle: 'ВУЗы для поступления',
+                    color: const Color(0xFF3F6EB0),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const StudentUniversitiesScreen()),
+                    ),
+                  ),
+                  _CareerTile(
+                    title: 'Партнёры',
                     icon: Icons.handshake_outlined,
                     subtitle: 'Компании и организации',
+                    color: const Color(0xFFFF9500),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const SharedPartnersScreen()),
@@ -108,6 +126,7 @@ class StudentCareerScreen extends StatelessWidget {
                     title: 'Контакты',
                     icon: Icons.contacts_outlined,
                     subtitle: 'Карьерный центр',
+                    color: const Color(0xFF00BCD4),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const StudentCareerContactsScreen()),
@@ -117,6 +136,7 @@ class StudentCareerScreen extends StatelessWidget {
                     title: 'Мероприятия',
                     icon: Icons.event_note_rounded,
                     subtitle: 'События и встречи',
+                    color: const Color(0xFFE91E63),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const StudentEventsScreen()),
@@ -127,6 +147,8 @@ class StudentCareerScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+
+          // ── Быстрые действия ──────────────────────────────────────────────
           _SectionCard(
             title: 'Быстрые действия',
             children: [
@@ -146,6 +168,8 @@ class StudentCareerScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+
+          // ── Полезные советы ───────────────────────────────────────────────
           const _SectionCard(
             title: 'Полезно сейчас',
             children: [
@@ -162,6 +186,11 @@ class StudentCareerScreen extends StatelessWidget {
               _HintRow(
                 icon: Icons.check_circle_outline_rounded,
                 text: 'Добавляй проекты и кейсы в портфолио с измеримыми результатами.',
+              ),
+              SizedBox(height: 10),
+              _HintRow(
+                icon: Icons.check_circle_outline_rounded,
+                text: 'Рассмотри возможность продолжения образования в университетах-партнёрах.',
               ),
             ],
           ),
@@ -189,12 +218,14 @@ class _CareerTile extends StatelessWidget {
     required this.icon,
     required this.subtitle,
     required this.onTap,
+    this.color = const Color(0xFF4A90E2),
   });
 
   final String title;
   final IconData icon;
   final String subtitle;
   final VoidCallback onTap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -210,13 +241,13 @@ class _CareerTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
+                  color: color.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, size: 18, color: const Color(0xFF4A90E2)),
+                child: Icon(icon, size: 20, color: color),
               ),
               const Spacer(),
               Text(
