@@ -1145,6 +1145,7 @@ class SpecialtyItem {
     required this.colorHex,
     required this.iconName,
     required this.imageUrl,
+    this.gosuslugiUrl = '',
   });
   final int id;
   final String code;
@@ -1160,6 +1161,7 @@ class SpecialtyItem {
   final String colorHex;
   final String iconName;
   final String imageUrl;
+  final String gosuslugiUrl;
 
   factory SpecialtyItem.fromJson(Map<String, dynamic> json) {
     return SpecialtyItem(
@@ -1177,6 +1179,7 @@ class SpecialtyItem {
       colorHex: (json['color_hex'] ?? '').toString(),
       iconName: (json['icon_name'] ?? '').toString(),
       imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
+      gosuslugiUrl: (json['gosuslugi_url'] ?? '').toString(),
     );
   }
 
@@ -1195,6 +1198,7 @@ class SpecialtyItem {
     'color_hex': colorHex,
     'icon_name': iconName,
     'image_url': imageUrl,
+    'gosuslugi_url': gosuslugiUrl,
   };
 }
 
