@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
-import 'document_submission_screen.dart';
 
 String _normTitle(String s) {
   var t = s.trim().toLowerCase();
@@ -200,33 +200,66 @@ class _CareerGuidanceScreenState extends State<CareerGuidanceScreen> {
                 ),
                 const SizedBox(height: 24),
                 ...q.answers.map((a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => _answer(a),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                            side: const BorderSide(color: Color(0xFFBBDEFB), width: 1.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            backgroundColor: Colors.white,
-                          ),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              a.text,
-                              style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.3),
-                            ),
-                          ),
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => _answer(a),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        side: const BorderSide(color: Color(0xFFBBDEFB), width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        backgroundColor: Colors.white,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          a.text,
+                          style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.3),
                         ),
                       ),
-                    )),
+                    ),
+                  ),
+                )),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _openGosuslugi(BuildContext context) async {
+    SpecialtyItem? match;
+    for (final s in _specialties) {
+      if (_normTitle(s.title) == _normTitle(_resultSpecialty)) {
+        match = s;
+        break;
+      }
+    }
+    final urlStr = match?.gosuslugiUrl.trim() ?? '';
+
+    if (urlStr.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ссылка на Госуслуги для этой специальности пока не указана'),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final url = Uri.parse(urlStr);
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось открыть ссылку')),
+        );
+      }
+    }
   }
 
   Widget _buildResultScreen(BuildContext context) {
@@ -347,16 +380,7 @@ class _CareerGuidanceScreenState extends State<CareerGuidanceScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DocumentSubmissionScreen(
-                        initialSpecialties: [_resultSpecialty],
-                      ),
-                    ),
-                  );
-                },
+                onPressed: () => _openGosuslugi(context),
                 icon: const Icon(Icons.description_outlined),
                 label: const Text('Подать документы', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 style: ElevatedButton.styleFrom(

@@ -201,6 +201,7 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
       skills: item.skillsText.isNotEmpty ? item.skillsText : 'Уточняется',
       salary: item.salaryText.isNotEmpty ? item.salaryText : 'Уточняется',
       imagePath: item.imageUrl.isNotEmpty ? item.imageUrl : 'assets/images/application_logo/icon42.png',
+      gosuslugiUrl: item.gosuslugiUrl,
     );
   }
 
@@ -311,293 +312,293 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 24),
                 children: [
-                // ── 1) ИСТОРИИ ────────────────────────────────────────────────
-                SizedBox(
-                  height: storyHeight,
-                  child: _storiesUi.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'Мероприятия и истории появятся после публикации на сайте.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _storiesUi.length,
-                          itemBuilder: (context, index) {
-                            return _buildStoryItem(context, index, _storiesUi[index]);
-                          },
-                        ),
-                ),
-                const SizedBox(height: 18),
-                // ── 2) КНОПКИ ─────────────────────────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CareerGuidanceScreen())),
-                        child: Container(
-                          height: buttonHeight, padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.explore, size: buttonIconSize, color: const Color(0xFF4A90E2)),
-                            const SizedBox(height: 8),
-                            Text('Профориентация', textAlign: TextAlign.center, style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.w500)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollegeInfoScreen())),
-                        child: Container(
-                          height: buttonHeight, padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
-                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.school, size: buttonIconSize, color: const Color(0xFF4A90E2)),
-                            const SizedBox(height: 8),
-                            Text('О колледже', textAlign: TextAlign.center, style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.w500)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-                // ── 3) СПЕЦИАЛЬНОСТИ ──────────────────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Специальности',
-                        style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AllSpecialtiesScreen(
-                              specialties: _specialtiesUi,
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('Все'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ValueListenableBuilder<Set<String>>(
-                  valueListenable: FavoriteSpecialtyStore.instance.favorites,
-                  builder: (context, favorites, _) {
-                    final list = _specialtiesUi;
-                    return Column(
-                children: [
-                if (_loadError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Material(
-                      color: const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(10),
+                  // ── 1) ИСТОРИИ ────────────────────────────────────────────────
+                  SizedBox(
+                    height: storyHeight,
+                    child: _storiesUi.isEmpty
+                        ? Center(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
-                          'Ошибка загрузки данных: $_loadError',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_loadError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Material(
-                      color: const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        child: Text(
-                          'Ошибка загрузки данных: $_loadError',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ),
-                SizedBox(
-                          height: cardHeight,
-                          child: list.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text(
-                                      'Специальности загружаются с сервера или ещё не опубликованы.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                                    ),
-                                  ),
-                                )
-                              : PageView.builder(
-                                  controller: _specialtyController,
-                                  padEnds: false,
-                                  itemCount: list.length,
-                                  onPageChanged: (i) => setState(() => _currentSpecialtyPage = i),
-                                  itemBuilder: (context, index) {
-                                    final spec = list[index];
-                                    return ApplicantSpecialtyCarouselCard(
-                                      specialty: spec,
-                                      isFavorite: favorites.contains(spec.id),
-                                      onToggleFavorite: () => FavoriteSpecialtyStore.instance.toggle(spec.id),
-                                      onOpen: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SpecialtyDetailScreen(specialty: spec))),
-                                    );
-                                  },
-                                ),
-                        ),
-                        if (list.isNotEmpty) const SizedBox(height: 10),
-                        if (list.isNotEmpty)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(list.length, (i) {
-                              final active = i == _currentSpecialtyPage;
-                              return AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                margin: const EdgeInsets.symmetric(horizontal: 3),
-                                width: active ? 18 : 6, height: 6,
-                                decoration: BoxDecoration(color: active ? const Color(0xFF4A90E2) : Colors.grey[300], borderRadius: BorderRadius.circular(3)),
-                              );
-                            }),
-                          ),
-                        // Кнопка «Подать документы» — появляется когда есть избранные
-                        if (favorites.isNotEmpty) ...[
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => DocumentSubmissionScreen(initialSpecialties: favorites.toList()),
-                              )),
-                              icon: const Icon(Icons.description_outlined),
-                              label: Text('Подать документы (${favorites.length})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4A90E2), foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                elevation: 0,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 28),
-                // ── 4) ОБУЧЕНИЕ ───────────────────────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Обучение',
-                        style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AllEducationProgramsScreen(programs: _educationProgramsUi),
-                          ),
-                        );
-                      },
-                      child: const Text('Все'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    ChoiceChip(
-                      label: const Text('Доп. образование'),
-                      selected: _educationFilter == EducationFilter.additional,
-                      onSelected: (v) { if (!v) return; setState(() { _educationFilter = EducationFilter.additional; _currentEducationPage = 0; }); _educationController.jumpToPage(0); },
-                      selectedColor: const Color(0xFF4A90E2).withOpacity(0.15),
-                      labelStyle: TextStyle(color: _educationFilter == EducationFilter.additional ? const Color(0xFF4A90E2) : Colors.black87, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 10),
-                    ChoiceChip(
-                      label: const Text('Курсы'),
-                      selected: _educationFilter == EducationFilter.courses,
-                      onSelected: (v) { if (!v) return; setState(() { _educationFilter = EducationFilter.courses; _currentEducationPage = 0; }); _educationController.jumpToPage(0); },
-                      selectedColor: const Color(0xFF4A90E2).withOpacity(0.15),
-                      labelStyle: TextStyle(color: _educationFilter == EducationFilter.courses ? const Color(0xFF4A90E2) : Colors.black87, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Builder(builder: (context) {
-                  final list = _filteredEducationPrograms;
-                  if (list.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Center(
-                        child: Text(
-                          'Программы обучения появятся после публикации на сайте.',
+                          'Мероприятия и истории появятся после публикации на сайте.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                       ),
-                    );
-                  }
-                  return Column(children: [
-                    SizedBox(
-                      height: cardHeight,
-                      child: PageView.builder(
-                        controller: _educationController,
-                        padEnds: false,
-                        itemCount: list.length,
-                        onPageChanged: (i) => setState(() => _currentEducationPage = i),
-                        itemBuilder: (context, index) => ApplicantEducationCarouselCard(program: list[index]),
-                      ),
+                    )
+                        : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _storiesUi.length,
+                      itemBuilder: (context, index) {
+                        return _buildStoryItem(context, index, _storiesUi[index]);
+                      },
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(list.length, (i) {
-                        final active = i == _currentEducationPage;
-                        return AnimatedContainer(duration: const Duration(milliseconds: 250), margin: const EdgeInsets.symmetric(horizontal: 3), width: active ? 18 : 6, height: 6, decoration: BoxDecoration(color: active ? const Color(0xFF4A90E2) : Colors.grey[300], borderRadius: BorderRadius.circular(3)));
-                      }),
-                    ),
-                  ]);
-                }),
-                const SizedBox(height: 28),
-                // ── 5) ПАРТНЁРЫ ───────────────────────────────────────────────
-                Text('Партнёры', style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                _partnersUi.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          'Партнёры будут показаны после публикации на сайте.',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  const SizedBox(height: 18),
+                  // ── 2) КНОПКИ ─────────────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CareerGuidanceScreen())),
+                          child: Container(
+                            height: buttonHeight, padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.explore, size: buttonIconSize, color: const Color(0xFF4A90E2)),
+                              const SizedBox(height: 8),
+                              Text('Профориентация', textAlign: TextAlign.center, style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.w500)),
+                            ]),
+                          ),
                         ),
-                      )
-                    : GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: partnerCrossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: partnerAspectRatio),
-                        itemCount: _partnersUi.length,
-                        itemBuilder: (context, i) => _buildPartnerCard(_partnersUi[i]),
                       ),
-              ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CollegeInfoScreen())),
+                          child: Container(
+                            height: buttonHeight, padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(12)),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.school, size: buttonIconSize, color: const Color(0xFF4A90E2)),
+                              const SizedBox(height: 8),
+                              Text('О колледже', textAlign: TextAlign.center, style: TextStyle(fontSize: buttonFontSize, fontWeight: FontWeight.w500)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  // ── 3) СПЕЦИАЛЬНОСТИ ──────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Специальности',
+                          style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AllSpecialtiesScreen(
+                                specialties: _specialtiesUi,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Все'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<Set<String>>(
+                    valueListenable: FavoriteSpecialtyStore.instance.favorites,
+                    builder: (context, favorites, _) {
+                      final list = _specialtiesUi;
+                      return Column(
+                        children: [
+                          if (_loadError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Material(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Text(
+                                    'Ошибка загрузки данных: $_loadError',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (_loadError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Material(
+                                color: const Color(0xFFFFF3E0),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Text(
+                                    'Ошибка загрузки данных: $_loadError',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          SizedBox(
+                            height: cardHeight,
+                            child: list.isEmpty
+                                ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  'Специальности загружаются с сервера или ещё не опубликованы.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                                ),
+                              ),
+                            )
+                                : PageView.builder(
+                              controller: _specialtyController,
+                              padEnds: false,
+                              itemCount: list.length,
+                              onPageChanged: (i) => setState(() => _currentSpecialtyPage = i),
+                              itemBuilder: (context, index) {
+                                final spec = list[index];
+                                return ApplicantSpecialtyCarouselCard(
+                                  specialty: spec,
+                                  isFavorite: favorites.contains(spec.id),
+                                  onToggleFavorite: () => FavoriteSpecialtyStore.instance.toggle(spec.id),
+                                  onOpen: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SpecialtyDetailScreen(specialty: spec))),
+                                );
+                              },
+                            ),
+                          ),
+                          if (list.isNotEmpty) const SizedBox(height: 10),
+                          if (list.isNotEmpty)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(list.length, (i) {
+                                final active = i == _currentSpecialtyPage;
+                                return AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                                  width: active ? 18 : 6, height: 6,
+                                  decoration: BoxDecoration(color: active ? const Color(0xFF4A90E2) : Colors.grey[300], borderRadius: BorderRadius.circular(3)),
+                                );
+                              }),
+                            ),
+                          // Кнопка «Подать документы» — появляется когда есть избранные
+                          if (favorites.isNotEmpty) ...[
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => DocumentSubmissionScreen(initialSpecialties: favorites.toList()),
+                                )),
+                                icon: const Icon(Icons.description_outlined),
+                                label: Text('Подать документы (${favorites.length})', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4A90E2), foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 28),
+                  // ── 4) ОБУЧЕНИЕ ───────────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Обучение',
+                          style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AllEducationProgramsScreen(programs: _educationProgramsUi),
+                            ),
+                          );
+                        },
+                        child: const Text('Все'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label: const Text('Доп. образование'),
+                        selected: _educationFilter == EducationFilter.additional,
+                        onSelected: (v) { if (!v) return; setState(() { _educationFilter = EducationFilter.additional; _currentEducationPage = 0; }); _educationController.jumpToPage(0); },
+                        selectedColor: const Color(0xFF4A90E2).withOpacity(0.15),
+                        labelStyle: TextStyle(color: _educationFilter == EducationFilter.additional ? const Color(0xFF4A90E2) : Colors.black87, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 10),
+                      ChoiceChip(
+                        label: const Text('Курсы'),
+                        selected: _educationFilter == EducationFilter.courses,
+                        onSelected: (v) { if (!v) return; setState(() { _educationFilter = EducationFilter.courses; _currentEducationPage = 0; }); _educationController.jumpToPage(0); },
+                        selectedColor: const Color(0xFF4A90E2).withOpacity(0.15),
+                        labelStyle: TextStyle(color: _educationFilter == EducationFilter.courses ? const Color(0xFF4A90E2) : Colors.black87, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Builder(builder: (context) {
+                    final list = _filteredEducationPrograms;
+                    if (list.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: Text(
+                            'Программы обучения появятся после публикации на сайте.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                          ),
+                        ),
+                      );
+                    }
+                    return Column(children: [
+                      SizedBox(
+                        height: cardHeight,
+                        child: PageView.builder(
+                          controller: _educationController,
+                          padEnds: false,
+                          itemCount: list.length,
+                          onPageChanged: (i) => setState(() => _currentEducationPage = i),
+                          itemBuilder: (context, index) => ApplicantEducationCarouselCard(program: list[index]),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(list.length, (i) {
+                          final active = i == _currentEducationPage;
+                          return AnimatedContainer(duration: const Duration(milliseconds: 250), margin: const EdgeInsets.symmetric(horizontal: 3), width: active ? 18 : 6, height: 6, decoration: BoxDecoration(color: active ? const Color(0xFF4A90E2) : Colors.grey[300], borderRadius: BorderRadius.circular(3)));
+                        }),
+                      ),
+                    ]);
+                  }),
+                  const SizedBox(height: 28),
+                  // ── 5) ПАРТНЁРЫ ───────────────────────────────────────────────
+                  Text('Партнёры', style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _partnersUi.isEmpty
+                      ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Партнёры будут показаны после публикации на сайте.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                  )
+                      : GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: partnerCrossAxisCount, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: partnerAspectRatio),
+                    itemCount: _partnersUi.length,
+                    itemBuilder: (context, i) => _buildPartnerCard(_partnersUi[i]),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         ],
       ),

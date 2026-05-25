@@ -5,6 +5,7 @@ import '../../data/api/api_client.dart';
 import '../../data/session/app_session.dart';
 import '../widgets/centered_app_bar_title.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+import 'widgets/student_home_college_section.dart';
 
 class StudentHomeScreen extends StatefulWidget {
   const StudentHomeScreen({super.key});
@@ -107,6 +108,8 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   },
                 ),
               ),
+              const SizedBox(height: 24),
+              const StudentHomeCollegeSection(),
               const SizedBox(height: 24),
               FutureBuilder<List<NewsItem>>(
                 future: _newsFuture,

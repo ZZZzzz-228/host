@@ -31,6 +31,7 @@ class Specialty {
   final String skills;
   final String salary;
   final String imagePath;
+  final String gosuslugiUrl;
   const Specialty({
     required this.id,
     required this.title,
@@ -46,6 +47,7 @@ class Specialty {
     required this.skills,
     required this.salary,
     required this.imagePath,
+    this.gosuslugiUrl = '',
   });
 }
 
