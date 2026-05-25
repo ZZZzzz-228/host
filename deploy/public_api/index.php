@@ -40,17 +40,12 @@ define('SITE_URL',   'https://cf990597-wordpress-yndvp.tw1.ru');
 // ── CORS ─────────────────────────────────────────────────────────────────────
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Authorization, X-Auth-Token, Content-Type, Accept');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept');
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
-}
-
-// CGI/FastCGI: Authorization иногда попадает только в REDIRECT_HTTP_AUTHORIZATION
-if (empty($_SERVER['HTTP_AUTHORIZATION']) && !empty($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-    $_SERVER['HTTP_AUTHORIZATION'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
 }
 
 // ── PDO singleton ─────────────────────────────────────────────────────────────
@@ -88,20 +83,6 @@ function json_body(): array {
 }
 
 function get_bearer_token(): ?string {
-    // 1) Query — работает, если хостинг не передаёт Authorization
-    foreach (['access_token', 'token'] as $key) {
-        if (!empty($_GET[$key]) && is_string($_GET[$key])) {
-            return trim($_GET[$key]);
-        }
-    }
-
-    // 2) Заголовок X-Auth-Token (дублирует Bearer из приложения)
-    $xToken = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? $_SERVER['HTTP_X_ACCESS_TOKEN'] ?? '';
-    if (is_string($xToken) && $xToken !== '') {
-        return trim($xToken);
-    }
-
-    // 3) Стандартный Authorization: Bearer
     $auth = $_SERVER['HTTP_AUTHORIZATION']
         ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
         ?? $_SERVER['Authorization']
@@ -112,9 +93,6 @@ function get_bearer_token(): ?string {
     }
     if (str_starts_with($auth, 'Bearer ')) {
         return trim(substr($auth, 7));
-    }
-    if ($auth !== '') {
-        return trim($auth);
     }
     return null;
 }
@@ -236,6 +214,41 @@ if ($method === 'GET' && $uri === '/contacts') {
         }
     }
     json_out(['data' => $result]);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// GET /career-contacts — сотрудники Центра карьеры (карточки в приложении)
+// ────────────────────────────────────────────────────────────────────────────
+if ($method === 'GET' && $uri === '/career-contacts') {
+    $pdo = getDB();
+    $st = $pdo->prepare(
+        "SELECT id, label, name, position, department, phone, email, address,
+                room, schedule, vk_url, photo_url, sort_order
+         FROM contacts
+         WHERE is_active = 1 AND category = 'career_center'
+         ORDER BY sort_order ASC, name ASC, label ASC"
+    );
+    $st->execute();
+    $rows = $st->fetchAll();
+    $out = [];
+    foreach ($rows as $r) {
+        $out[] = [
+            'id'         => (int) $r['id'],
+            'label'      => (string) ($r['label'] ?? ''),
+            'name'       => (string) ($r['name'] ?? ''),
+            'position'   => (string) ($r['position'] ?? ''),
+            'department' => (string) ($r['department'] ?? ''),
+            'phone'      => (string) ($r['phone'] ?? ''),
+            'email'      => (string) ($r['email'] ?? ''),
+            'address'    => (string) ($r['address'] ?? ''),
+            'room'       => (string) ($r['room'] ?? ''),
+            'schedule'   => (string) ($r['schedule'] ?? ''),
+            'vk_url'     => fix_url((string) ($r['vk_url'] ?? '')),
+            'photo_url'  => fix_url((string) ($r['photo_url'] ?? '')),
+            'sort_order' => (int) ($r['sort_order'] ?? 0),
+        ];
+    }
+    json_out(['data' => $out]);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

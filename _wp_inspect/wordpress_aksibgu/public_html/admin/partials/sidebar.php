@@ -44,6 +44,7 @@
     <div class="nav-item" onclick="go('cevents',this)"><span class="ni"><i class="fas fa-calendar-check"></i></span>Мероприятия</div>
     <div class="nav-item" onclick="go('universities',this);if(typeof loadUniversities==='function')loadUniversities();"><span class="ni"><i class="fas fa-university"></i></span>Университеты</div>
     <div class="nav-item" onclick="go('partners',this)"><span class="ni"><i class="fas fa-handshake"></i></span>Партнёры</div>
+    <div class="nav-item" onclick="go('career-contacts',this)"><span class="ni"><i class="fas fa-id-card"></i></span>Контакты Центр карьеры</div>
     <div class="nav-item" onclick="go('career-test',this)"><span class="ni"><i class="fas fa-clipboard-list"></i></span>Тесты (профориентация)</div>
 
     <div class="nav-sec">Прочее</div>

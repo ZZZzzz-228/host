@@ -1,0 +1,277 @@
+/* ================================================================
+   DASHBOARD EXTRA — дополнительные стили для нового дашборда
+   Подключается после admin.css
+   ================================================================ */
+
+/* ── KPI-СЕТКА ────────────────────────────────────────────────── */
+.dash-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.dash-kpi-card {
+    background: var(--bg3);
+    border: 1px solid var(--bdr);
+    border-radius: var(--r);
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    cursor: pointer;
+    transition: border-color var(--tr), transform var(--tr), box-shadow var(--tr);
+    position: relative;
+    overflow: hidden;
+}
+
+.dash-kpi-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 60%, rgba(108,99,255,0.04));
+    pointer-events: none;
+}
+
+.dash-kpi-card:hover {
+    border-color: var(--acc);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(108,99,255,0.15);
+}
+
+.dash-kpi-ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.dash-kpi-body { flex: 1; min-width: 0 }
+
+.dash-kpi-val {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+
+.dash-kpi-lbl {
+    font-size: 11px;
+    color: var(--txt3);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-kpi-sub {
+    font-size: 10px;
+    color: var(--txt3);
+    margin-top: 2px;
+    opacity: 0.7;
+}
+
+.dash-kpi-arr {
+    font-size: 10px;
+    color: var(--txt3);
+    opacity: 0;
+    transition: opacity var(--tr), transform var(--tr);
+    flex-shrink: 0;
+}
+
+.dash-kpi-card:hover .dash-kpi-arr {
+    opacity: 0.5;
+    transform: translateX(3px);
+}
+
+/* ── АЛЕРТ-БАННЕР ─────────────────────────────────────────────── */
+.dash-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    border-radius: var(--rs);
+    margin-bottom: 10px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: opacity var(--tr);
+}
+
+.dash-alert:hover { opacity: 0.85 }
+
+.dash-alert-warning {
+    background: rgba(243,156,18,0.1);
+    border: 1px solid rgba(243,156,18,0.25);
+    color: var(--warn);
+}
+
+.dash-alert-info {
+    background: rgba(52,152,219,0.1);
+    border: 1px solid rgba(52,152,219,0.25);
+    color: var(--info);
+}
+
+/* ── ДВУХКОЛОНОЧНЫЙ РЯД ───────────────────────────────────────── */
+.dash-row {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 18px;
+    align-items: flex-start;
+}
+
+.dash-chart-main {
+    flex: 2;
+    min-width: 0;
+    margin-bottom: 0 !important;
+}
+
+.dash-chart-side {
+    flex: 1;
+    min-width: 240px;
+    margin-bottom: 0 !important;
+}
+
+.dash-activity {
+    flex: 1;
+    min-width: 280px;
+    max-height: 420px;
+    overflow: hidden;
+}
+
+/* ── ХОЛСТЫ ДИАГРАММ ──────────────────────────────────────────── */
+.dash-chart-wrap {
+    position: relative;
+    height: 260px;
+}
+
+.dash-donut-wrap {
+    position: relative;
+    height: 200px;
+    max-width: 200px;
+    margin: 0 auto 12px;
+}
+
+/* ── ЛЕГЕНДА ДИАГРАММЫ ────────────────────────────────────────── */
+.dash-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 12px;
+}
+
+.dash-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 6px;
+    border-radius: 5px;
+    transition: background var(--tr);
+}
+
+.dash-legend-item:hover { background: var(--bghov) }
+
+.dash-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dash-legend-lbl { flex: 1; color: var(--txt2) }
+
+.dash-legend-val {
+    font-weight: 600;
+    color: var(--txt);
+    min-width: 30px;
+    text-align: right;
+}
+
+.dash-legend-pct {
+    color: var(--txt3);
+    min-width: 32px;
+    text-align: right;
+    font-size: 11px;
+}
+
+/* ── ПЕРИОД-ПЕРЕКЛЮЧАТЕЛЬ ─────────────────────────────────────── */
+.dash-period-btn { background: var(--bghov) !important; }
+.dash-period-btn.active {
+    background: var(--accl) !important;
+    color: var(--acc) !important;
+    border-color: rgba(108,99,255,0.3) !important;
+}
+
+/* ── ЛЕНТА АКТИВНОСТИ ─────────────────────────────────────────── */
+.dash-log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    max-height: 340px;
+}
+
+.dash-log-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--bdr);
+    transition: background var(--tr);
+}
+
+.dash-log-item:last-child { border-bottom: none }
+.dash-log-item:hover { background: var(--bghov); border-radius: var(--rxs); padding-left: 8px; }
+
+.dash-log-ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.dash-log-ico.bs { background: rgba(39,174,96,0.15);  color: var(--success) }
+.dash-log-ico.bi { background: rgba(52,152,219,0.15); color: var(--info)    }
+.dash-log-ico.bd { background: rgba(231,76,60,0.15);  color: var(--danger)  }
+.dash-log-ico.bm { background: rgba(255,255,255,0.06);color: var(--txt3)    }
+
+.dash-log-body { flex: 1; min-width: 0 }
+
+.dash-log-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    font-size: 12px;
+}
+
+.dash-log-meta {
+    font-size: 10.5px;
+    color: var(--txt3);
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ── АДАПТИВ ──────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .dash-row { flex-direction: column }
+    .dash-chart-main,
+    .dash-chart-side,
+    .dash-activity { flex: none; min-width: 0; width: 100% }
+    .dash-kpi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) }
+}
+
+@media (max-width: 560px) {
+    .dash-kpi-grid { grid-template-columns: 1fr 1fr }
+    .dash-kpi-val { font-size: 20px }
+}

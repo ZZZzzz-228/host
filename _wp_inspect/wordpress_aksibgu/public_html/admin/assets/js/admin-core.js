@@ -106,6 +106,7 @@ const titles = {
     schedule:'Расписание', staff:'Сотрудники', students:'Студенты',
     resumes:'Резюме', portfolio:'Портфолио', vacancies:'Вакансии',
     cevents:'Мероприятия', partners:'Партнёры', universities:'Университеты',
+    'career-contacts':'Контакты Центр карьеры',
     docs:'Документы', admins:'Администраторы', settings:'Настройки', logs:'Журнал',
     'career-test':'Тесты профориентации'
 };
@@ -119,6 +120,7 @@ const loaders = {
     portfolio:()=>loadPortfolio(), vacancies:()=>loadVacs(), cevents:()=>loadCEvents(),
     partners:()=>loadPartners(),
     universities:()=>{ if (typeof loadUniversities === 'function') loadUniversities(); },
+    'career-contacts':()=>{ if (typeof loadCareerContacts === 'function') loadCareerContacts(); },
     docs:()=>loadDocs(), admins:()=>loadAdmins(),
     settings:()=>loadSettings(), logs:()=>loadLogs(),
     'career-test':()=>loadCareerTests()

@@ -356,6 +356,31 @@ class ApiClient {
   Future<List<ContactItem>> fetchCareerCenterContacts() =>
       fetchContacts(category: 'career_center');
 
+  /// Сотрудники / контакты Центра карьеры (карточки в разделе «Карьера» → «Контакты»).
+  Future<List<CareerContactPerson>> fetchCareerCenterPeople() async {
+    try {
+      final uri = _u('/career-contacts');
+      final response = await _executeRequest(
+        (client, headers) => client.get(uri, headers: headers),
+      );
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          json['message']?.toString() ?? 'Не удалось загрузить контакты',
+        );
+      }
+      final data = json['data'];
+      if (data is! List) throw ApiException('Invalid career-contacts response');
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(CareerContactPerson.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchCareerCenterPeople failed: $e');
+      return const [];
+    }
+  }
+
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
       final uri = _u('/vacancies').replace(
@@ -958,6 +983,75 @@ class ContactItem {
       label: json['label']?.toString(),
     );
   }
+}
+
+class CareerContactPerson {
+  CareerContactPerson({
+    required this.id,
+    required this.label,
+    required this.name,
+    required this.position,
+    required this.phone,
+    required this.email,
+    required this.address,
+    required this.room,
+    required this.schedule,
+    required this.vkUrl,
+    required this.photoUrl,
+  });
+
+  final int id;
+  final String label;
+  final String name;
+  final String position;
+  final String phone;
+  final String email;
+  final String address;
+  final String room;
+  final String schedule;
+  final String vkUrl;
+  final String photoUrl;
+
+  String get displayName {
+    final n = name.trim();
+    if (n.isNotEmpty) return n;
+    return label.trim();
+  }
+
+  String get officeInfo {
+    final parts = <String>[
+      if (room.trim().isNotEmpty) 'каб. ${room.trim()}',
+      if (schedule.trim().isNotEmpty) schedule.trim(),
+    ];
+    return parts.join(' · ');
+  }
+
+  factory CareerContactPerson.fromJson(Map<String, dynamic> json) {
+    return CareerContactPerson(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      label: (json['label'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      position: (json['position'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      address: (json['address'] ?? '').toString(),
+      room: (json['room'] ?? '').toString(),
+      schedule: (json['schedule'] ?? '').toString(),
+      vkUrl: (json['vk_url'] ?? '').toString(),
+      photoUrl: (json['photo_url'] ?? '').toString(),
+    );
+  }
+
+  StaffMemberItem toStaffCard() => StaffMemberItem(
+        id: id,
+        fullName: displayName.isNotEmpty ? displayName : 'Сотрудник',
+        positionTitle: position,
+        email: email,
+        phone: phone,
+        officeHours: officeInfo,
+        photoUrl: photoUrl,
+        colorHex: '',
+      );
 }
 
 class VacancyItem {

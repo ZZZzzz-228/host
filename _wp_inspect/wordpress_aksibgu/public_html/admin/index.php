@@ -82,6 +82,7 @@ $themeClass = ($theme === 'light') ? ' class="light"' : '';
     <?php include 'sections/cevents.php'; ?>
     <?php include 'sections/career_test.php'; ?>
     <?php include 'sections/partners.php'; ?>
+    <?php include 'sections/career-contacts.php'; ?>
     <?php include 'sections/documents.php'; ?>
     <?php include 'sections/admins.php'; ?>
     <?php include 'sections/settings.php'; ?>
@@ -129,6 +130,7 @@ $themeClass = ($theme === 'light') ? ' class="light"' : '';
 <script src="assets/js/sections/academic.js"></script>
 <script src="assets/js/sections/career.js"></script>
 <script src="assets/js/sections/universities.js"></script>
+<script src="assets/js/sections/career-contacts.js"></script>
 <script src="assets/js/sections/career-test.js"></script>
 <script src="assets/js/sections/settings-admins-logs.js"></script>
 <script src="assets/js/sections/about-college.js"></script>

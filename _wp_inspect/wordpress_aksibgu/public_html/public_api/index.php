@@ -217,6 +217,41 @@ if ($method === 'GET' && $uri === '/contacts') {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// GET /career-contacts — сотрудники Центра карьеры (карточки в приложении)
+// ────────────────────────────────────────────────────────────────────────────
+if ($method === 'GET' && $uri === '/career-contacts') {
+    $pdo = getDB();
+    $st = $pdo->prepare(
+        "SELECT id, label, name, position, department, phone, email, address,
+                room, schedule, vk_url, photo_url, sort_order
+         FROM contacts
+         WHERE is_active = 1 AND category = 'career_center'
+         ORDER BY sort_order ASC, name ASC, label ASC"
+    );
+    $st->execute();
+    $rows = $st->fetchAll();
+    $out = [];
+    foreach ($rows as $r) {
+        $out[] = [
+            'id'         => (int) $r['id'],
+            'label'      => (string) ($r['label'] ?? ''),
+            'name'       => (string) ($r['name'] ?? ''),
+            'position'   => (string) ($r['position'] ?? ''),
+            'department' => (string) ($r['department'] ?? ''),
+            'phone'      => (string) ($r['phone'] ?? ''),
+            'email'      => (string) ($r['email'] ?? ''),
+            'address'    => (string) ($r['address'] ?? ''),
+            'room'       => (string) ($r['room'] ?? ''),
+            'schedule'   => (string) ($r['schedule'] ?? ''),
+            'vk_url'     => fix_url((string) ($r['vk_url'] ?? '')),
+            'photo_url'  => fix_url((string) ($r['photo_url'] ?? '')),
+            'sort_order' => (int) ($r['sort_order'] ?? 0),
+        ];
+    }
+    json_out(['data' => $out]);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // GET /specialties
 // ────────────────────────────────────────────────────────────────────────────
 if ($method === 'GET' && $uri === '/specialties') {
