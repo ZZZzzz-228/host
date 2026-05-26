@@ -95,6 +95,19 @@ StudyGroupSchedule? findGroupSchedule(String name) {
   for (final g in studentGroupSchedules) {
     if (g.name.toLowerCase() == key) return g;
   }
+  const aliases = {
+    'иск-3-22': 'ИСК1-22',
+    'иск-2-22': 'ИСК1-22',
+    'исп-2-22': 'ПК-10-25',
+    'тоад-1-23': 'ТАД-10-25',
+    'сса-2-22': 'С-65-24',
+  };
+  final alias = aliases[key];
+  if (alias != null) {
+    for (final g in studentGroupSchedules) {
+      if (g.name == alias) return g;
+    }
+  }
   return null;
 }
 

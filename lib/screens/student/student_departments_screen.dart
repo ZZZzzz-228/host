@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../data/student/student_college_data.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
+import 'student_main_scope.dart';
 import 'student_group_schedule_screen.dart';
 
 class StudentDepartmentsScreen extends StatelessWidget {
   const StudentDepartmentsScreen({super.key});
 
   void _openGroupSchedule(BuildContext context, String groupName) {
+    final scope = StudentMainScope.maybeOf(context);
+    if (scope != null) {
+      Navigator.pop(context);
+      scope.openGroupSchedule(groupName);
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -40,11 +48,14 @@ class StudentDepartmentsScreen extends StatelessWidget {
                 side: BorderSide(color: Colors.grey.shade300),
               ),
               child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(context)
+                    .copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   initiallyExpanded: index == 0,
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  tilePadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  childrenPadding:
+                      const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   title: Text(
                     d.title,
                     style: const TextStyle(
@@ -53,7 +64,7 @@ class StudentDepartmentsScreen extends StatelessWidget {
                     ),
                   ),
                   subtitle: Text(
-                    'Код: ${d.code} · ${d.groups.length} ${_groupsLabel(d.groups.length)}',
+                    '${d.groups.length} ${_groupsLabel(d.groups.length)}',
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   children: [
@@ -99,27 +110,53 @@ class StudentDepartmentsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: d.groups.map((groupName) {
-                          return ActionChip(
-                            label: Text(groupName),
-                            backgroundColor: const Color(0xFFE3F2FD),
-                            labelStyle: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1565C0),
+                      ...d.groups.map(
+                        (groupName) => Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Material(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(10),
+                            child: InkWell(
+                              onTap: () =>
+                                  _openGroupSchedule(context, groupName),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_month,
+                                      size: 20,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        groupName,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF1565C0),
+                                        ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xFF1565C0),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            side: const BorderSide(color: Color(0xFF90CAF9)),
-                            onPressed: () =>
-                                _openGroupSchedule(context, groupName),
-                          );
-                        }).toList(growable: false),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'Нажмите на группу, чтобы открыть расписание',
+                        'Нажмите на группу — откроется вкладка «Расписание»',
                         style: TextStyle(fontSize: 11, color: Colors.black45),
                       ),
                     ],
