@@ -122,6 +122,12 @@ class SpecialtyDetailScreen extends StatelessWidget {
                 Expanded(child: _buildInfoChip(Icons.school, 'Форма', specialty.form, specialty.color)),
               ]),
             ),
+
+            // ═════════ КРАСИВЫЙ БЛОК ПРИЁМА ═════════
+            const SizedBox(height: 12),
+            _buildAdmissionBlock(specialty),
+            // ═══════════════════════════════════════════
+
             const SizedBox(height: 20),
             const Text('О специальности', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
@@ -178,6 +184,201 @@ class SpecialtyDetailScreen extends StatelessWidget {
           ]),
         )),
       ]),
+    );
+  }
+
+  /// Красивый блок "Условия приёма" в едином стиле с верхней карточкой:
+  /// серый фон Colors.grey[50], тонкая граница, внутри — белые "плитки"
+  /// с иконками в фирменном цвете специальности.
+  Widget _buildAdmissionBlock(Specialty s) {
+    final hasAnyInfo = s.base9 || s.base11 || s.hasBudget;
+    if (!hasAnyInfo) return const SizedBox.shrink();
+
+    final accent = s.color;
+    const greenBudget = Color(0xFF2E7D32);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок
+          Row(children: [
+            Icon(Icons.school_outlined, color: accent, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'Условия приёма',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: accent,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+
+          // ── База 9 / База 11 — две плитки в ряд (как Срок/Форма выше) ──
+          Row(
+            children: [
+              Expanded(
+                child: _admissionTile(
+                  icon: Icons.looks_one_rounded,
+                  label: 'На базе',
+                  value: '9 классов',
+                  active: s.base9,
+                  accent: accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _admissionTile(
+                  icon: Icons.looks_two_rounded,
+                  label: 'На базе',
+                  value: '11 классов',
+                  active: s.base11,
+                  accent: accent,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── Бюджет: плитка во всю ширину ──
+          if (s.hasBudget)
+            _budgetTile(
+              icon: Icons.account_balance_wallet_rounded,
+              title: 'Есть бюджетные места',
+              subtitle: s.budgetSeats > 0
+                  ? 'Количество мест: ${s.budgetSeats}'
+                  : 'Количество мест уточняется',
+              color: greenBudget,
+            )
+          else
+            _budgetTile(
+              icon: Icons.payments_outlined,
+              title: 'Только платное обучение',
+              subtitle: 'Бюджетных мест не предусмотрено',
+              color: Colors.orange.shade700,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Плитка база 9 / база 11 — в стиле _buildInfoChip (белая + иконка фирменного цвета).
+  Widget _admissionTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool active,
+    required Color accent,
+  }) {
+    final fg = active ? accent : Colors.grey.shade400;
+    final valueColor = active ? Colors.black87 : Colors.grey.shade500;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: active ? accent.withOpacity(0.25) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: fg, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (!active) ...[
+                Icon(Icons.do_not_disturb_alt_rounded, size: 12, color: Colors.grey.shade400),
+                const SizedBox(width: 4),
+              ],
+              Flexible(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: valueColor,
+                    decoration: active ? null : TextDecoration.lineThrough,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Плитка "Есть бюджет / только платно" — белая, с цветной иконкой слева.
+  Widget _budgetTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
