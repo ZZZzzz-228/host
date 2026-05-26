@@ -1,0 +1,18 @@
+# Отключаем WordPress-роутинг для этой папки
+# Все запросы вида /public_api/anything идут в index.php
+ 
+Options -MultiViews
+ 
+RewriteEngine On
+ 
+# Если запрашивается реальный файл или папка — отдаём как есть
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+ 
+# Передаём Authorization в PHP (иначе Bearer-токен теряется на Apache/FastCGI)
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Всё остальное — в index.php
+RewriteRule ^ index.php [QSA,L]
+ 

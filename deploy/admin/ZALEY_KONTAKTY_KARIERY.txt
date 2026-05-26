@@ -1,0 +1,14 @@
+Контакты Центра карьеры — залить на хостинг:
+
+public_html/public_api/index.php
+public_html/admin/index.php
+public_html/admin/partials/sidebar.php
+public_html/admin/assets/js/admin-core.js
+public_html/admin/assets/js/sections/content.js
+public_html/admin/assets/js/sections/career-contacts.js   ← новый
+public_html/admin/sections/career-contacts.php            ← новый
+(модальное окно modal-contact.php уже есть — не меняли)
+
+В админке: Карьерный центр → «Контакты Центр карьеры» → Добавить (ФИО, должность, телефон, фото).
+
+В приложении: пересобрать Flutter после обновления api_client.dart.

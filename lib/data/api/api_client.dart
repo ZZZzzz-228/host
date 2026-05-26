@@ -12,16 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String _kServerBase = 'https://cf990597-wordpress-yndvp.tw1.ru';
 
 /// Превращает относительный путь, который пришёл с бэкенда, в абсолютный URL.
-///
-/// Сервер сейчас отдаёт пути уже с префиксом `/api/public/...`
-/// (например, `/api/public/uploads/foo.png`,
-/// `/api/public/uploads/partners/reshetnev.png`).
-/// Раньше сервер отдавал короткие пути вида `/uploads/...`, поэтому здесь
-/// поддерживаем оба формата:
-///   * если строка уже начинается с `http(s)://` — возвращаем как есть;
-///   * если начинается с `/api/` — просто приклеиваем хост;
-///   * если начинается с `/uploads/` или другого относительного пути —
-///     добавляем `/api/public` перед ним (legacy-формат).
 String _fixUrl(String url) {
   if (url.isEmpty) return url;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -30,10 +20,6 @@ String _fixUrl(String url) {
   return '$_kServerBase/api/public/$url';
 }
 
-/// Собираем реальный http.Client.
-/// На mobile используем свой dart:io HttpClient с короткими таймаутами
-/// и принудительным IPv4 — это избавляет от зависаний IPv6 dual-stack DNS
-/// и от багов keep-alive Beget.
 http.Client _buildHttpClient() {
   if (kIsWeb) {
     return http.Client();
@@ -64,6 +50,17 @@ class ApiClient {
   String? get token => _token;
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
+
+  /// Для /student/* дублируем токен в query — на Timeweb часто не доходит Authorization.
+  Uri _uriForRequest(String path) {
+    final uri = _u(path);
+    if (!path.startsWith('/student')) return uri;
+    final t = _token;
+    if (t == null || t.isEmpty) return uri;
+    return uri.replace(
+      queryParameters: {...uri.queryParameters, 'access_token': t},
+    );
+  }
 
   Future<void> _ensureTokenLoaded() async {
     if (_tokenLoaded) return;
@@ -115,7 +112,6 @@ class ApiClient {
       'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
-      // Connection: close — лечит зависания keep-alive с Beget
       'Connection': 'close',
       'Referer': '$baseUrl/',
       'User-Agent':
@@ -123,7 +119,10 @@ class ApiClient {
       'X-Requested-With': 'XMLHttpRequest',
       if (_challengeCookie != null && _challengeCookie!.isNotEmpty)
         'Cookie': '__test=$_challengeCookie',
-      if (_token != null && _token!.isNotEmpty) 'Authorization': 'Bearer $_token',
+      if (_token != null && _token!.isNotEmpty) ...{
+        'Authorization': 'Bearer $_token',
+        'X-Auth-Token': _token!,
+      },
       ...?headers,
     };
   }
@@ -152,7 +151,6 @@ class ApiClient {
           }
         }
 
-        // Если вернулся HTML вместо JSON — это bot challenge, который мы не распознали. Ретраим.
         final ct = (response.headers['content-type'] ?? '').toLowerCase();
         if (response.statusCode == 200 && ct.contains('text/html')) {
           debugPrint('[ApiClient] HTML response on attempt ${attempt + 1}, retry');
@@ -191,7 +189,7 @@ class ApiClient {
   Future<http.Response> _get(String path, {Map<String, String>? headers}) {
     return _executeRequest(
           (client, effectiveHeaders) => client.get(
-        _u(path),
+        _uriForRequest(path),
         headers: {...effectiveHeaders, ...?headers},
       ),
     );
@@ -204,7 +202,21 @@ class ApiClient {
       }) {
     return _executeRequest(
           (client, effectiveHeaders) => client.post(
-        _u(path),
+        _uriForRequest(path),
+        headers: {...effectiveHeaders, ...?headers},
+        body: body,
+      ),
+    );
+  }
+
+  Future<http.Response> _put(
+      String path, {
+        Map<String, String>? headers,
+        Object? body,
+      }) {
+    return _executeRequest(
+          (client, effectiveHeaders) => client.put(
+        _uriForRequest(path),
         headers: {...effectiveHeaders, ...?headers},
         body: body,
       ),
@@ -214,7 +226,7 @@ class ApiClient {
   Future<http.Response> _delete(String path, {Map<String, String>? headers}) {
     return _executeRequest(
           (client, effectiveHeaders) => client.delete(
-        _u(path),
+        _uriForRequest(path),
         headers: {...effectiveHeaders, ...?headers},
       ),
     );
@@ -307,7 +319,7 @@ class ApiClient {
       await _persistToken(json['token']?.toString());
       return json;
     }
-    throw ApiException(json['message']?.toString() ?? 'Login failed');
+    throw ApiException(_apiErrorMessage(json, 'Ошибка входа'));
   }
 
   Future<void> logout() async {
@@ -343,6 +355,31 @@ class ApiClient {
 
   Future<List<ContactItem>> fetchCareerCenterContacts() =>
       fetchContacts(category: 'career_center');
+
+  /// Сотрудники / контакты Центра карьеры (карточки в разделе «Карьера» → «Контакты»).
+  Future<List<CareerContactPerson>> fetchCareerCenterPeople() async {
+    try {
+      final uri = _u('/career-contacts');
+      final response = await _executeRequest(
+        (client, headers) => client.get(uri, headers: headers),
+      );
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          json['message']?.toString() ?? 'Не удалось загрузить контакты',
+        );
+      }
+      final data = json['data'];
+      if (data is! List) throw ApiException('Invalid career-contacts response');
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(CareerContactPerson.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchCareerCenterPeople failed: $e');
+      return const [];
+    }
+  }
 
   Future<List<VacancyItem>> fetchVacancies({String? query}) async {
     try {
@@ -580,26 +617,72 @@ class ApiClient {
     }
   }
 
+  // ─── UNIVERSITIES ────────────────────────────────────────────────────────────
+
+  Future<List<UniversityItem>> fetchUniversities() async {
+    try {
+      final response = await _get('/universities');
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load universities');
+      }
+      final data = json['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(UniversityItem.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchUniversities failed: $e');
+      return const [];
+    }
+  }
+
+  // ─── STUDENT PROFILE ─────────────────────────────────────────────────────────
+
   Future<StudentProfileItem?> fetchStudentProfile() async {
     final response =
     await _get('/student/profile', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-          json['message']?.toString() ?? 'Failed to load student profile');
+      _throwApiError(response, json, 'Не удалось загрузить профиль');
     }
     final data = json['data'];
     if (data is! Map<String, dynamic>) return null;
     return StudentProfileItem.fromJson(data);
   }
 
+  // ─── SPECIALTIES FOR RESUME ──────────────────────────────────────────────────
+
+  Future<List<SpecialtyWithQuestions>> fetchSpecialtiesForResume() async {
+    try {
+      final response =
+      await _get('/student/specialties', headers: _authHeaders());
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(json['message']?.toString() ?? 'Failed');
+      }
+      final data = json['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(SpecialtyWithQuestions.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchSpecialtiesForResume failed: $e');
+      return const [];
+    }
+  }
+
+  // ─── RESUMES ─────────────────────────────────────────────────────────────────
+
   Future<List<StudentResumeItem>> fetchStudentResumes() async {
     final response =
     await _get('/student/resumes', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-          json['message']?.toString() ?? 'Failed to load resumes');
+      _throwApiError(response, json, 'Не удалось загрузить резюме');
     }
     final data = json['data'];
     if (data is! List) return const [];
@@ -609,20 +692,60 @@ class ApiClient {
         .toList(growable: false);
   }
 
-  Future<void> createStudentResume({
-    required String title,
-    String? summary,
-  }) async {
+  Future<StudentResumeFullItem?> fetchStudentResumeById(int id) async {
+    try {
+      final response =
+      await _get('/student/resumes/$id', headers: _authHeaders());
+      final json = _decodeJson(response.body);
+      if (response.statusCode == 404) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(json['message']?.toString() ?? 'Failed');
+      }
+      final data = json['data'];
+      if (data is! Map<String, dynamic>) return null;
+      return StudentResumeFullItem.fromJson(data);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchStudentResumeById failed: $e');
+      return null;
+    }
+  }
+
+  Future<int> createStudentResumeFull(Map<String, dynamic> resumeData) async {
     final response = await _post(
       '/student/resumes',
       headers: _authHeaders(contentTypeJson: true),
-      body: jsonEncode({'title': title, 'summary': summary}),
+      body: jsonEncode(resumeData),
+    );
+    final json = _decodeJson(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response, json, 'Не удалось сохранить резюме');
+    }
+    return (json['id'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> updateStudentResumeFull(
+      int id, Map<String, dynamic> resumeData) async {
+    final response = await _put(
+      '/student/resumes/$id',
+      headers: _authHeaders(contentTypeJson: true),
+      body: jsonEncode(resumeData),
     );
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
-          json['message']?.toString() ?? 'Failed to create resume');
+          json['message']?.toString() ?? 'Failed to update resume');
     }
+  }
+
+  /// Совместимость со старым кодом
+  Future<void> createStudentResume({
+    required String title,
+    String? summary,
+  }) async {
+    await createStudentResumeFull({
+      'desired_position': title,
+      'about': summary ?? '',
+    });
   }
 
   Future<void> deleteStudentResume(int id) async {
@@ -635,13 +758,14 @@ class ApiClient {
     }
   }
 
+  // ─── PORTFOLIO ───────────────────────────────────────────────────────────────
+
   Future<List<StudentPortfolioItem>> fetchStudentPortfolio() async {
     final response =
     await _get('/student/portfolio', headers: _authHeaders());
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-          json['message']?.toString() ?? 'Failed to load portfolio');
+      _throwApiError(response, json, 'Не удалось загрузить портфолио');
     }
     final data = json['data'];
     if (data is! List) return const [];
@@ -651,24 +775,58 @@ class ApiClient {
         .toList(growable: false);
   }
 
-  Future<void> createStudentPortfolioItem({
+  Future<int> createStudentPortfolioItem({
     required String title,
     String? description,
     String? projectUrl,
+    String? imageUrl,
+    String? category,
+    List<String>? tags,
   }) async {
     final response = await _post(
       '/student/portfolio',
       headers: _authHeaders(contentTypeJson: true),
       body: jsonEncode({
         'title': title,
-        'description': description,
-        'project_url': projectUrl,
+        'description': description ?? '',
+        'project_url': projectUrl ?? '',
+        'image_url': imageUrl ?? '',
+        'category': category ?? '',
+        'tags': tags ?? [],
+      }),
+    );
+    final json = _decodeJson(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _throwApiError(response, json, 'Не удалось сохранить проект');
+    }
+    return (json['id'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> updateStudentPortfolioItem(
+      int id, {
+        required String title,
+        String? description,
+        String? projectUrl,
+        String? imageUrl,
+        String? category,
+        List<String>? tags,
+      }) async {
+    final response = await _put(
+      '/student/portfolio/$id',
+      headers: _authHeaders(contentTypeJson: true),
+      body: jsonEncode({
+        'title': title,
+        'description': description ?? '',
+        'project_url': projectUrl ?? '',
+        'image_url': imageUrl ?? '',
+        'category': category ?? '',
+        'tags': tags ?? [],
       }),
     );
     final json = _decodeJson(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
-          json['message']?.toString() ?? 'Failed to create portfolio item');
+          json['message']?.toString() ?? 'Failed to update portfolio item');
     }
   }
 
@@ -681,6 +839,8 @@ class ApiClient {
           json['message']?.toString() ?? 'Failed to delete portfolio item');
     }
   }
+
+  // ─── APPLICATIONS ─────────────────────────────────────────────────────────────
 
   Future<int> submitPublicApplication({
     required String type,
@@ -747,8 +907,26 @@ class ApiClient {
     if (contentTypeJson) headers['Content-Type'] = 'application/json';
     if (_token != null && _token!.isNotEmpty) {
       headers['Authorization'] = 'Bearer $_token';
+      headers['X-Auth-Token'] = _token!;
     }
     return headers;
+  }
+
+  String _apiErrorMessage(Map<String, dynamic> json, String fallback) {
+    final message = json['message']?.toString();
+    if (message != null && message.isNotEmpty) return message;
+    final error = json['error']?.toString();
+    if (error != null && error.isNotEmpty) return error;
+    return fallback;
+  }
+
+  Never _throwApiError(http.Response response, Map<String, dynamic> json, String fallback) {
+    if (response.statusCode == 401) {
+      throw ApiException(
+        'Сессия не принята сервером. Выйдите из кабинета и войдите снова.',
+      );
+    }
+    throw ApiException(_apiErrorMessage(json, fallback));
   }
 
   Map<String, dynamic> _decodeJson(String body) {
@@ -805,6 +983,75 @@ class ContactItem {
       label: json['label']?.toString(),
     );
   }
+}
+
+class CareerContactPerson {
+  CareerContactPerson({
+    required this.id,
+    required this.label,
+    required this.name,
+    required this.position,
+    required this.phone,
+    required this.email,
+    required this.address,
+    required this.room,
+    required this.schedule,
+    required this.vkUrl,
+    required this.photoUrl,
+  });
+
+  final int id;
+  final String label;
+  final String name;
+  final String position;
+  final String phone;
+  final String email;
+  final String address;
+  final String room;
+  final String schedule;
+  final String vkUrl;
+  final String photoUrl;
+
+  String get displayName {
+    final n = name.trim();
+    if (n.isNotEmpty) return n;
+    return label.trim();
+  }
+
+  String get officeInfo {
+    final parts = <String>[
+      if (room.trim().isNotEmpty) 'каб. ${room.trim()}',
+      if (schedule.trim().isNotEmpty) schedule.trim(),
+    ];
+    return parts.join(' · ');
+  }
+
+  factory CareerContactPerson.fromJson(Map<String, dynamic> json) {
+    return CareerContactPerson(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      label: (json['label'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      position: (json['position'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      address: (json['address'] ?? '').toString(),
+      room: (json['room'] ?? '').toString(),
+      schedule: (json['schedule'] ?? '').toString(),
+      vkUrl: (json['vk_url'] ?? '').toString(),
+      photoUrl: (json['photo_url'] ?? '').toString(),
+    );
+  }
+
+  StaffMemberItem toStaffCard() => StaffMemberItem(
+        id: id,
+        fullName: displayName.isNotEmpty ? displayName : 'Сотрудник',
+        positionTitle: position,
+        email: email,
+        phone: phone,
+        officeHours: officeInfo,
+        photoUrl: photoUrl,
+        colorHex: '',
+      );
 }
 
 class VacancyItem {
@@ -937,14 +1184,13 @@ class StoryItem {
   final int id;
   final String title;
   final String content;
-  final String imageUrl;          // обложка для совместимости
-  final List<String> imageUrls;   // все фото истории
+  final String imageUrl;
+  final List<String> imageUrls;
   final int sortOrder;
 
   factory StoryItem.fromJson(Map<String, dynamic> json) {
-    // 1) Парсим images_json — может прийти как List, либо как JSON-строка
     final raw = json['images_json'];
-    final List<String> parsed = <String>[];
+    final parsed = <String>[];
     if (raw is List) {
       for (final item in raw) {
         if (item is String && item.isNotEmpty) {
@@ -964,10 +1210,7 @@ class StoryItem {
       } catch (_) {}
     }
 
-    // 2) Старое одиночное поле image_url — обложка
     final cover = _fixUrl((json['image_url'] ?? '').toString());
-
-    // 3) Если images_json пустой — кладём в него хотя бы обложку
     final urls = parsed.isNotEmpty
         ? parsed
         : (cover.isNotEmpty ? [cover] : const <String>[]);
@@ -1117,10 +1360,8 @@ class PageContentItem {
       aboutTitle: (contentMap['about_title'] ?? '').toString(),
       statsHeading: (contentMap['stats_heading'] ?? '').toString(),
       advantagesHeading: (contentMap['advantages_heading'] ?? '').toString(),
-      achievementsHeading:
-      (contentMap['achievements_heading'] ?? '').toString(),
-      infrastructureHeading:
-      (contentMap['infrastructure_heading'] ?? '').toString(),
+      achievementsHeading: (contentMap['achievements_heading'] ?? '').toString(),
+      infrastructureHeading: (contentMap['infrastructure_heading'] ?? '').toString(),
       infrastructureText: (contentMap['infrastructure_text'] ?? '').toString(),
       stats: _parseStats(contentMap['stats']),
       advantages: _parseCmsCards(contentMap['advantages']),
@@ -1202,6 +1443,69 @@ class SpecialtyItem {
   };
 }
 
+class SpecialtyWithQuestions {
+  SpecialtyWithQuestions({
+    required this.id,
+    required this.title,
+    required this.shortTitle,
+    required this.code,
+    required this.questions,
+  });
+  final int id;
+  final String title;
+  final String shortTitle;
+  final String code;
+  final List<ResumeQuestion> questions;
+
+  factory SpecialtyWithQuestions.fromJson(Map<String, dynamic> json) {
+    List<ResumeQuestion> qs = [];
+    final rawQ = json['resume_questions'];
+    if (rawQ is List) {
+      qs = rawQ
+          .whereType<Map<String, dynamic>>()
+          .map(ResumeQuestion.fromJson)
+          .toList();
+    }
+    return SpecialtyWithQuestions(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      title: (json['title'] ?? '').toString(),
+      shortTitle: (json['short_title'] ?? '').toString(),
+      code: (json['code'] ?? '').toString(),
+      questions: qs,
+    );
+  }
+}
+
+class ResumeQuestion {
+  ResumeQuestion({
+    required this.id,
+    required this.question,
+    required this.fieldType,
+    required this.fieldOptions,
+    required this.isRequired,
+  });
+  final int id;
+  final String question;
+  final String fieldType; // text, textarea, select, multiselect, number, date
+  final List<String> fieldOptions;
+  final bool isRequired;
+
+  factory ResumeQuestion.fromJson(Map<String, dynamic> json) {
+    List<String> opts = [];
+    final rawOpts = json['field_options'];
+    if (rawOpts is List) {
+      opts = rawOpts.map((e) => e.toString()).toList();
+    }
+    return ResumeQuestion(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      question: (json['question'] ?? '').toString(),
+      fieldType: (json['field_type'] ?? 'text').toString(),
+      fieldOptions: opts,
+      isRequired: (json['is_required'] as num?)?.toInt() == 1,
+    );
+  }
+}
+
 class EducationProgramItem {
   EducationProgramItem({
     required this.id,
@@ -1272,6 +1576,7 @@ class PartnerItem {
     required this.websiteUrl,
     required this.logoUrl,
   });
+
   final int id;
   final String name;
   final String description;
@@ -1287,14 +1592,6 @@ class PartnerItem {
       logoUrl: _fixUrl((json['logo_url'] ?? '').toString()),
     );
   }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'website_url': websiteUrl,
-    'logo_url': logoUrl,
-  };
 }
 
 class EventItem {
@@ -1322,17 +1619,11 @@ class EventItem {
 
   factory EventItem.fromJson(Map<String, dynamic> json) {
     DateTime? starts;
-    final startsRaw = json['starts_at']?.toString();
-    if (startsRaw != null && startsRaw.isNotEmpty) {
-      starts = DateTime.tryParse(startsRaw);
-    }
-
     DateTime? ends;
-    final endsRaw = json['ends_at']?.toString();
-    if (endsRaw != null && endsRaw.isNotEmpty) {
-      ends = DateTime.tryParse(endsRaw);
-    }
-
+    final s = json['starts_at']?.toString();
+    final e = json['ends_at']?.toString();
+    if (s != null && s.isNotEmpty) starts = DateTime.tryParse(s);
+    if (e != null && e.isNotEmpty) ends = DateTime.tryParse(e);
     return EventItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
@@ -1358,13 +1649,14 @@ class CareerTestQuestion {
   final List<CareerTestAnswer> answers;
 
   factory CareerTestQuestion.fromJson(Map<String, dynamic> json) {
-    final rawAnswers = json['answers'];
-    final answers = rawAnswers is List
-        ? rawAnswers
-        .whereType<Map<String, dynamic>>()
-        .map(CareerTestAnswer.fromJson)
-        .toList(growable: false)
-        : <CareerTestAnswer>[];
+    final raw = json['answers'];
+    List<CareerTestAnswer> answers = [];
+    if (raw is List) {
+      answers = raw
+          .whereType<Map<String, dynamic>>()
+          .map(CareerTestAnswer.fromJson)
+          .toList();
+    }
     return CareerTestQuestion(
       question: (json['question'] ?? '').toString(),
       answers: answers,
@@ -1415,36 +1707,262 @@ class StudentProfileItem {
 }
 
 class StudentResumeItem {
-  StudentResumeItem(
-      {required this.id, required this.title, required this.summary});
+  StudentResumeItem({
+    required this.id,
+    required this.title,
+    required this.summary,
+    this.desiredPosition = '',
+    this.city = '',
+    this.desiredSalary,
+    this.specialtyTitle = '',
+    this.isPublished = false,
+    this.createdAt,
+  });
   final int id;
   final String title;
   final String summary;
+  final String desiredPosition;
+  final String city;
+  final int? desiredSalary;
+  final String specialtyTitle;
+  final bool isPublished;
+  final DateTime? createdAt;
+
   factory StudentResumeItem.fromJson(Map<String, dynamic> json) {
+    DateTime? created;
+    final cRaw = json['created_at']?.toString();
+    if (cRaw != null && cRaw.isNotEmpty) created = DateTime.tryParse(cRaw);
+    final pos = (json['desired_position'] ?? '').toString();
+    final ln = (json['last_name'] ?? '').toString();
+    final fn = (json['first_name'] ?? '').toString();
+    final mn = (json['middle_name'] ?? '').toString();
+    final nameParts = [ln, fn, mn].where((s) => s.isNotEmpty).join(' ');
     return StudentResumeItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      title: (json['title'] ?? '').toString(),
-      summary: (json['summary'] ?? '').toString(),
+      title: pos.isNotEmpty ? pos : (json['title'] ?? 'Резюме').toString(),
+      summary: nameParts.isNotEmpty ? nameParts : (json['summary'] ?? '').toString(),
+      desiredPosition: pos,
+      city: (json['city'] ?? '').toString(),
+      desiredSalary: (json['desired_salary'] as num?)?.toInt(),
+      specialtyTitle: (json['specialty_title'] ?? '').toString(),
+      isPublished: (json['is_published'] as num?)?.toInt() == 1,
+      createdAt: created,
     );
   }
 }
+
+class StudentResumeFullItem {
+  StudentResumeFullItem({
+    required this.id,
+    required this.lastName,
+    required this.firstName,
+    required this.middleName,
+    required this.desiredPosition,
+    required this.city,
+    required this.phone,
+    required this.email,
+    required this.telegram,
+    required this.vk,
+    required this.about,
+    required this.gender,
+    required this.birthDate,
+    required this.desiredSalary,
+    required this.employmentType,
+    required this.schedule,
+    required this.workExperience,
+    required this.education,
+    required this.skills,
+    required this.languages,
+    required this.portfolioLinks,
+    required this.specialtyAnswers,
+    this.specialtyId,
+    this.specialtyTitle = '',
+    this.isPublished = false,
+  });
+
+  final int id;
+  final String lastName;
+  final String firstName;
+  final String middleName;
+  final String desiredPosition;
+  final String city;
+  final String phone;
+  final String email;
+  final String telegram;
+  final String vk;
+  final String about;
+  final String gender;
+  final String? birthDate;
+  final int? desiredSalary;
+  final List<String> employmentType;
+  final List<String> schedule;
+  final List<Map<String, dynamic>> workExperience;
+  final List<Map<String, dynamic>> education;
+  final List<String> skills;
+  final List<Map<String, dynamic>> languages;
+  final List<String> portfolioLinks;
+  final Map<String, dynamic> specialtyAnswers;
+  final int? specialtyId;
+  final String specialtyTitle;
+  final bool isPublished;
+
+  String get fullName {
+    return [lastName, firstName, middleName].where((s) => s.isNotEmpty).join(' ');
+  }
+
+  factory StudentResumeFullItem.fromJson(Map<String, dynamic> json) {
+    List<String> parseStringList(dynamic raw) {
+      if (raw is List) return raw.map((e) => e.toString()).toList();
+      return [];
+    }
+
+    List<Map<String, dynamic>> parseMapList(dynamic raw) {
+      if (raw is List) {
+        return raw.whereType<Map<String, dynamic>>().toList();
+      }
+      return [];
+    }
+
+    Map<String, dynamic> parseMap(dynamic raw) {
+      if (raw is Map<String, dynamic>) return raw;
+      return {};
+    }
+
+    return StudentResumeFullItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      lastName: (json['last_name'] ?? '').toString(),
+      firstName: (json['first_name'] ?? '').toString(),
+      middleName: (json['middle_name'] ?? '').toString(),
+      desiredPosition: (json['desired_position'] ?? '').toString(),
+      city: (json['city'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      telegram: (json['telegram'] ?? '').toString(),
+      vk: (json['vk'] ?? '').toString(),
+      about: (json['about'] ?? '').toString(),
+      gender: (json['gender'] ?? '').toString(),
+      birthDate: json['birth_date']?.toString(),
+      desiredSalary: (json['desired_salary'] as num?)?.toInt(),
+      employmentType: parseStringList(json['employment_type']),
+      schedule: parseStringList(json['schedule']),
+      workExperience: parseMapList(json['work_experience']),
+      education: parseMapList(json['education']),
+      skills: parseStringList(json['skills']),
+      languages: parseMapList(json['languages']),
+      portfolioLinks: parseStringList(json['portfolio_links']),
+      specialtyAnswers: parseMap(json['specialty_answers']),
+      specialtyId: (json['specialty_id'] as num?)?.toInt(),
+      specialtyTitle: (json['specialty_title'] ?? '').toString(),
+      isPublished: (json['is_published'] as num?)?.toInt() == 1,
+    );
+  }
+}
+
 class StudentPortfolioItem {
   StudentPortfolioItem({
     required this.id,
     required this.title,
     required this.description,
     required this.projectUrl,
+    this.imageUrl = '',
+    this.category = '',
+    this.tagsList = const [],
+    this.isPublished = true,
+    this.createdAt,
   });
   final int id;
   final String title;
   final String description;
   final String projectUrl;
+  final String imageUrl;
+  final String category;
+  final List<String> tagsList;
+  final bool isPublished;
+  final DateTime? createdAt;
+
   factory StudentPortfolioItem.fromJson(Map<String, dynamic> json) {
+    List<String> tags = [];
+    final rawTags = json['tags_list'];
+    if (rawTags is List) {
+      tags = rawTags.map((e) => e.toString()).toList();
+    }
+    DateTime? created;
+    final cRaw = json['created_at']?.toString();
+    if (cRaw != null && cRaw.isNotEmpty) created = DateTime.tryParse(cRaw);
     return StudentPortfolioItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       projectUrl: (json['project_url'] ?? '').toString(),
+      imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
+      category: (json['category'] ?? '').toString(),
+      tagsList: tags,
+      isPublished: (json['is_published'] as num?)?.toInt() != 0,
+      createdAt: created,
+    );
+  }
+}
+
+class UniversityItem {
+  UniversityItem({
+    required this.id,
+    required this.name,
+    required this.shortName,
+    required this.description,
+    required this.fullText,
+    required this.url,
+    required this.admissionUrl,
+    required this.vkUrl,
+    required this.telegramUrl,
+    required this.logoUrl,
+    required this.coverUrl,
+    required this.city,
+    required this.address,
+    required this.phone,
+    required this.email,
+    required this.tagsList,
+  });
+
+  final int id;
+  final String name;
+  final String shortName;
+  final String description;
+  final String fullText;
+  final String url;
+  final String admissionUrl;
+  final String vkUrl;
+  final String telegramUrl;
+  final String logoUrl;
+  final String coverUrl;
+  final String city;
+  final String address;
+  final String phone;
+  final String email;
+  final List<String> tagsList;
+
+  factory UniversityItem.fromJson(Map<String, dynamic> json) {
+    List<String> tags = [];
+    final rawTags = json['tags_list'];
+    if (rawTags is List) {
+      tags = rawTags.map((e) => e.toString()).toList();
+    }
+    return UniversityItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] ?? '').toString(),
+      shortName: (json['short_name'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      fullText: (json['full_text'] ?? '').toString(),
+      url: (json['url'] ?? '').toString(),
+      admissionUrl: (json['admission_url'] ?? '').toString(),
+      vkUrl: (json['vk_url'] ?? '').toString(),
+      telegramUrl: (json['telegram_url'] ?? '').toString(),
+      logoUrl: _fixUrl((json['logo_url'] ?? '').toString()),
+      coverUrl: _fixUrl((json['cover_url'] ?? '').toString()),
+      city: (json['city'] ?? '').toString(),
+      address: (json['address'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      email: (json['email'] ?? '').toString(),
+      tagsList: tags,
     );
   }
 }
