@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Центр Карьеры АК СИБГУ',
+      title: 'АК СибГУ',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: const Color(0xFF4A90E2),
@@ -242,22 +242,12 @@ class _SplashScreenState extends State<SplashScreen>
                 child: const Column(
                   children: [
                     Text(
-                      'Центр Карьеры',
+                      'АК Сиб ГУ',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'АК СИБГУ',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white70,
-                        letterSpacing: 1.5,
                       ),
                     ),
                   ],

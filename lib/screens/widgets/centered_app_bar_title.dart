@@ -27,38 +27,14 @@ class CenteredAppBarTitle extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'ЦЕНТР',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF4A90E2),
-                  height: 1,
-                ),
-              ),
-              Text(
-                'КАРЬЕРЫ',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF4A90E2),
-                  height: 1,
-                ),
-              ),
-              Text(
-                'АК СИБГУ',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                  color: Color(0xFF4A90E2),
-                  height: 1,
-                ),
-              ),
-            ],
+          const Text(
+            'АК СибГУ',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF4A90E2),
+              height: 1,
+            ),
           ),
         ],
       ),

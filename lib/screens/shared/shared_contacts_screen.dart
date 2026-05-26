@@ -166,8 +166,8 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
   }
 
   Future<List<StaffMemberItem>> _excludeCareerCenterStaffIfNeeded(
-    List<StaffMemberItem> source,
-  ) async {
+      List<StaffMemberItem> source,
+      ) async {
     if (!widget.excludeCareerCenterStaff) return source;
     try {
       final career = await _apiClient.fetchStaff(department: 'career_center');
@@ -272,9 +272,9 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
               automaticallyImplyLeading: widget.showBackButton,
               leading: widget.showBackButton
                   ? IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                    )
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
                   : null,
               toolbarHeight: 74,
               flexibleSpace: _FrostedContactsHeader(showCenterTitle: _showHeaderTitle),
@@ -312,7 +312,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
       child: Column(
         children: [
           const Text(
-            'ЦЕНТР КАРЬЕРЫ',
+            'АК СибГУ',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
