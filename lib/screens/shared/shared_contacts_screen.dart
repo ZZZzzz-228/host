@@ -9,13 +9,9 @@ import '../../data/session/app_session.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
 import '../widgets/centered_app_bar_title.dart';
 
-/// Единый экран контактов — используется И в гостевой, И в студенческой части
-/// приложения. Все данные тянутся с сервера:
-///   • контакты (телефоны/почта/сайт)  → fetchContacts()
-///   • сотрудники (фото + ФИО + ...)   → fetchStaff()
-///
-/// Это «один источник истины»: правишь карточку в админке (vk_pending → нет,
-/// в /admin/contacts.php и /admin/staff.php) — меняется и для гостя, и для студента.
+/// Единый экран контактов — используется И в гостевой, И в студенческой части.
+/// Источник истины — админка. Дедупликация исправлена: ключ строится по id,
+/// чтобы разные сотрудники с одинаковым email НЕ схлопывались.
 class SharedContactsScreen extends StatefulWidget {
   const SharedContactsScreen({
     super.key,
@@ -93,16 +89,20 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     }
   }
 
+  /// Дедуп контактов: используем ID + тип, чтобы не схлопывать разные записи
+  /// с похожими телефонами (учитываем разные виды дефисов).
   List<ContactItem> _dedupeContacts(List<ContactItem> source) {
     final seen = <String>{};
     final out = <ContactItem>[];
     for (final c in source) {
+      // Нормализуем ВСЕ виды дефисов (обычный, мягкий, non-breaking, минус)
       final normalizedValue = c.value
           .trim()
           .toLowerCase()
           .replaceAll(RegExp(r'\s+'), ' ')
-          .replaceAll(RegExp(r'[()\-]'), '');
-      final key = '${c.type}|$normalizedValue';
+          .replaceAll(RegExp(r'[\(\)\-\u2010\u2011\u2012\u2013\u2014\u2212]'), '');
+      // Уникальный ключ = id + type + значение, чтобы разные записи не схлопывались
+      final key = '${c.id}|${c.type}|$normalizedValue';
       if (seen.add(key)) {
         out.add(c);
       }
@@ -118,7 +118,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     if (!mounted) return;
     if (cached != null && cached.isNotEmpty) {
       setState(() {
-        _staffList = cached;
+        _staffList = _dedupeStaff(cached);
         _staffInitialLoading = false;
         _staffFromCacheOnly = false;
         _staffError = null;
@@ -153,6 +153,9 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     }
   }
 
+  /// Дедупликация сотрудников по ID (а не по email!).
+  /// У 6 сотрудников может быть один и тот же общий email отделения —
+  /// они НЕ должны схлопываться в одного человека.
   List<StaffMemberItem> _dedupeStaff(List<StaffMemberItem> source) {
     final seen = <String>{};
     final out = <StaffMemberItem>[];
@@ -178,17 +181,11 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     }
   }
 
+  /// Уникальный ключ сотрудника = ID из БД.
+  /// Запасной вариант (если по какой-то причине id=0) — full_name.
   String _staffIdentityKey(StaffMemberItem s) {
-    String norm(String value) => value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'[()\-]'), '');
-    final email = norm(s.email);
-    final phone = norm(s.phone);
-    final name = norm(s.fullName);
-    if (email.isNotEmpty) return 'email|$email';
-    if (phone.isNotEmpty) return 'phone|$phone';
+    if (s.id > 0) return 'id|${s.id}';
+    final name = s.fullName.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
     return 'name|$name';
   }
 
@@ -452,6 +449,9 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     );
   }
 
+  /// Единая карточка сотрудника. Чтобы все карточки выглядели одинаково
+  /// (и Бабенко без email/фото — как остальные), используем минимальную
+  /// высоту нижней части и всегда показываем плейсхолдер вместо пустых полей.
   Widget _buildStaffCard({
     required String name,
     required String position,
@@ -461,6 +461,10 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     required String photoUrl,
     required List<Color> gradientColors,
   }) {
+    final hasEmail = email.trim().isNotEmpty;
+    final hasPhone = phone.trim().isNotEmpty;
+    final hasHours = hours.trim().isNotEmpty;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -481,10 +485,13 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
               color: Colors.white,
               shape: BoxShape.circle,
             ),
-            child: ClipOval(child: _buildStaffPhoto(photoUrl)),
+            child: ClipOval(child: _buildStaffPhoto(photoUrl, gradientColors[0], name)),
           ),
           const SizedBox(height: 16),
           Container(
+            width: double.infinity,
+            // Минимальная высота — чтобы все карточки выглядели одинаково
+            constraints: const BoxConstraints(minHeight: 180),
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -494,6 +501,7 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
               ),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   name,
@@ -506,60 +514,40 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: gradientColors[0]),
                 ),
-                if (email.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () async {
-                      final uri = Uri.parse('mailto:$email');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.email, size: 16, color: gradientColors[0]),
-                        const SizedBox(width: 8),
-                        Text(
-                          email,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: gradientColors[0],
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (phone.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () async {
-                      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-                      final uri = Uri.parse('tel:$cleanPhone');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.phone, size: 16, color: gradientColors[0]),
-                        const SizedBox(width: 8),
-                        Text(
-                          phone,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: gradientColors[0],
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (hours.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                // Email — всегда отображаем строку, чтобы layout не "прыгал"
+                _buildContactLine(
+                  icon: Icons.email,
+                  text: hasEmail ? email : 'Email не указан',
+                  color: gradientColors[0],
+                  enabled: hasEmail,
+                  onTap: hasEmail
+                      ? () async {
+                    final uri = Uri.parse('mailto:$email');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  }
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                // Phone — аналогично, всегда есть строка
+                _buildContactLine(
+                  icon: Icons.phone,
+                  text: hasPhone ? phone : 'Телефон не указан',
+                  color: gradientColors[0],
+                  enabled: hasPhone,
+                  onTap: hasPhone
+                      ? () async {
+                    final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+                    final uri = Uri.parse('tel:$cleanPhone');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  }
+                      : null,
+                ),
+                if (hasHours) ...[
                   const SizedBox(height: 8),
                   Text(
                     hours,
@@ -575,17 +563,59 @@ class _SharedContactsScreenState extends State<SharedContactsScreen> {
     );
   }
 
-  Widget _buildStaffPhoto(String photoUrl) {
-    final fallback = Image.asset(
-      'assets/images/application_logo/icon42.png',
-      fit: BoxFit.cover,
+  /// Универсальная строка контакта (email/phone) для единого вида карточки.
+  Widget _buildContactLine({
+    required IconData icon,
+    required String text,
+    required Color color,
+    required bool enabled,
+    VoidCallback? onTap,
+  }) {
+    final effectiveColor = enabled ? color : Colors.black38;
+    final child = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 16, color: effectiveColor),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: effectiveColor,
+              decoration: enabled ? TextDecoration.underline : TextDecoration.none,
+              fontStyle: enabled ? FontStyle.normal : FontStyle.italic,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
-    if (photoUrl.trim().isEmpty) return fallback;
+    if (onTap == null) return child;
+    return GestureDetector(onTap: onTap, child: child);
+  }
+
+  Widget _buildStaffPhoto(String photoUrl, Color accentColor, String name) {
+    // Плейсхолдер с инициалом — единый стиль для всех сотрудников без фото
+    final initial = name.trim().isNotEmpty ? name.trim()[0].toUpperCase() : '?';
+    final placeholder = Container(
+      color: accentColor.withOpacity(0.15),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          fontSize: 42,
+          fontWeight: FontWeight.bold,
+          color: accentColor,
+        ),
+      ),
+    );
+    if (photoUrl.trim().isEmpty) return placeholder;
     final absolute = _toAbsoluteUrl(photoUrl.trim());
     return Image.network(
       absolute,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => fallback,
+      errorBuilder: (_, __, ___) => placeholder,
     );
   }
 
@@ -648,7 +678,7 @@ class _InfoStat extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Frosted-шапка для контактов: при скролле появляется матовый фон + «Контакты»
+// Frosted-шапка для контактов
 // ─────────────────────────────────────────────────────────────────────────────
 class _FrostedContactsHeader extends StatelessWidget {
   final bool showCenterTitle;

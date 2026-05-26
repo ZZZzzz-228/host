@@ -202,6 +202,11 @@ class _AboutCollegeScreenState extends State<AboutCollegeScreen> {
       salary: item.salaryText.isNotEmpty ? item.salaryText : 'Уточняется',
       imagePath: item.imageUrl.isNotEmpty ? item.imageUrl : 'assets/images/application_logo/icon42.png',
       gosuslugiUrl: item.gosuslugiUrl,
+      // ── НОВЫЕ ПОЛЯ ──
+      base9: item.base9,
+      base11: item.base11,
+      hasBudget: item.hasBudget,
+      budgetSeats: item.budgetSeats,
     );
   }
 

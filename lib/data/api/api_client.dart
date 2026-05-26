@@ -1387,6 +1387,10 @@ class SpecialtyItem {
     required this.iconName,
     required this.imageUrl,
     this.gosuslugiUrl = '',
+    this.base9 = false,
+    this.base11 = false,
+    this.hasBudget = false,
+    this.budgetSeats = 0,
   });
   final int id;
   final String code;
@@ -1403,8 +1407,19 @@ class SpecialtyItem {
   final String iconName;
   final String imageUrl;
   final String gosuslugiUrl;
+  // ── НОВЫЕ ПОЛЯ ──
+  final bool base9;
+  final bool base11;
+  final bool hasBudget;
+  final int  budgetSeats;
 
   factory SpecialtyItem.fromJson(Map<String, dynamic> json) {
+    bool asBool(dynamic v) {
+      if (v is bool) return v;
+      if (v is num) return v != 0;
+      if (v is String) return v == '1' || v.toLowerCase() == 'true';
+      return false;
+    }
     return SpecialtyItem(
       id: (json['id'] as num?)?.toInt() ?? 0,
       code: (json['code'] ?? '').toString(),
@@ -1421,6 +1436,10 @@ class SpecialtyItem {
       iconName: (json['icon_name'] ?? '').toString(),
       imageUrl: _fixUrl((json['image_url'] ?? '').toString()),
       gosuslugiUrl: (json['gosuslugi_url'] ?? '').toString(),
+      base9:       asBool(json['base_9']),
+      base11:      asBool(json['base_11']),
+      hasBudget:   asBool(json['has_budget']),
+      budgetSeats: (json['budget_seats'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -1440,6 +1459,10 @@ class SpecialtyItem {
     'icon_name': iconName,
     'image_url': imageUrl,
     'gosuslugi_url': gosuslugiUrl,
+    'base_9': base9 ? 1 : 0,
+    'base_11': base11 ? 1 : 0,
+    'has_budget': hasBudget ? 1 : 0,
+    'budget_seats': budgetSeats,
   };
 }
 

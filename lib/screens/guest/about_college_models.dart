@@ -32,6 +32,12 @@ class Specialty {
   final String salary;
   final String imagePath;
   final String gosuslugiUrl;
+  // ── НОВЫЕ ПОЛЯ ──
+  final bool base9;
+  final bool base11;
+  final bool hasBudget;
+  final int  budgetSeats;
+
   const Specialty({
     required this.id,
     required this.title,
@@ -48,6 +54,10 @@ class Specialty {
     required this.salary,
     required this.imagePath,
     this.gosuslugiUrl = '',
+    this.base9 = false,
+    this.base11 = false,
+    this.hasBudget = false,
+    this.budgetSeats = 0,
   });
 }
 
@@ -95,8 +105,8 @@ class StoryData {
   final String title;
   final String content;
   final Color color;
-  final String imagePath;            // обложка (первое фото)
-  final List<String> imagePaths;     // все фото истории — для пролистывания и Bento Grid
+  final String imagePath;
+  final List<String> imagePaths;
   StoryData({
     required this.title,
     required this.content,

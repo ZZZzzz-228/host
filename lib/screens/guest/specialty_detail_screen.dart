@@ -122,6 +122,12 @@ class SpecialtyDetailScreen extends StatelessWidget {
                 Expanded(child: _buildInfoChip(Icons.school, 'Форма', specialty.form, specialty.color)),
               ]),
             ),
+
+            // ═════════ НОВЫЙ БЛОК: ПРИЁМ И БЮДЖЕТ ═════════
+            const SizedBox(height: 16),
+            _buildAdmissionBlock(specialty),
+            // ═══════════════════════════════════════════════
+
             const SizedBox(height: 20),
             const Text('О специальности', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
@@ -178,6 +184,139 @@ class SpecialtyDetailScreen extends StatelessWidget {
           ]),
         )),
       ]),
+    );
+  }
+
+  /// Блок "Условия приёма": база 9/11, бюджет, кол-во мест.
+  Widget _buildAdmissionBlock(Specialty s) {
+    // Если все поля по умолчанию (false / 0) — блок не рисуем
+    final hasAnyInfo = s.base9 || s.base11 || s.hasBudget;
+    if (!hasAnyInfo) return const SizedBox.shrink();
+
+    final accent = s.color;
+
+    Widget chip({
+      required IconData icon,
+      required String text,
+      required bool active,
+    }) {
+      final bg = active ? accent.withOpacity(0.12) : Colors.grey.shade100;
+      final fg = active ? accent : Colors.grey.shade500;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: active ? accent.withOpacity(0.3) : Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: fg),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                color: fg,
+                fontWeight: FontWeight.w600,
+                decoration: active ? null : TextDecoration.lineThrough,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.school_outlined, color: accent, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Условия приёма',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              chip(icon: Icons.looks_one_outlined, text: 'На базе 9 классов', active: s.base9),
+              chip(icon: Icons.looks_two_outlined, text: 'На базе 11 классов', active: s.base11),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (s.hasBudget)
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.payments, color: Colors.green.shade700, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Есть бюджетные места',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade800,
+                      ),
+                    ),
+                    if (s.budgetSeats > 0)
+                      Text(
+                        'Количество мест: ${s.budgetSeats}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black87),
+                      ),
+                  ],
+                ),
+              ),
+            ])
+          else
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.info_outline, color: Colors.orange.shade700, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Только платное обучение',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade900,
+                  ),
+                ),
+              ),
+            ]),
+        ],
+      ),
     );
   }
 

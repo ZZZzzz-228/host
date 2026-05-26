@@ -8,7 +8,11 @@ import '../../widgets/haptic_refresh_indicator.dart';
 import '../widgets/centered_app_bar_title.dart';
 import 'widgets/student_staff_card.dart';
 
-/// Контакты студента: администрация и преподаватели (без гостевого SharedContactsScreen).
+/// Контакты студента: администрация и преподаватели.
+///
+/// ИСПРАВЛЕНО: все сотрудники хранятся с role='career_center',
+/// поэтому загружаем всех и делим по ключевым словам в должности.
+/// Убраны попытки загрузить несуществующие роли 'administration', 'teachers' и т.д.
 class StudentContactsScreen extends StatefulWidget {
   const StudentContactsScreen({super.key});
 
@@ -29,17 +33,6 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
   String? _error;
   bool _fromCache = false;
 
-  static const _adminDepartments = [
-    'administration',
-    'college_admin',
-    'admin',
-  ];
-  static const _teacherDepartments = [
-    'teachers',
-    'pedagogical',
-    'pedagogues',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -53,14 +46,6 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
     if (shouldShow != _showHeaderTitle) {
       setState(() => _showHeaderTitle = shouldShow);
     }
-  }
-
-  Future<List<StaffMemberItem>> _fetchByDepartments(List<String> keys) async {
-    for (final key in keys) {
-      final list = await _api.fetchStaff(department: key);
-      if (list.isNotEmpty) return _dedupe(list);
-    }
-    return const [];
   }
 
   List<StaffMemberItem> _dedupe(List<StaffMemberItem> source) {
@@ -81,6 +66,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
       _error = null;
     });
 
+    // Читаем кэш
     final cachedAdmin = await GuestStaffCache.read(scope: 'student_admin');
     final cachedTeachers = await GuestStaffCache.read(scope: 'student_teachers');
     if (!mounted) return;
@@ -94,22 +80,17 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
     }
 
     try {
-      var admin = await _fetchByDepartments(_adminDepartments);
-      var teachers = await _fetchByDepartments(_teacherDepartments);
+      // ИСПРАВЛЕНО: загружаем всех сотрудников (все имеют role='career_center')
+      // и делим по ключевым словам в должности
+      final all = await _api.fetchStaff();
+      final deduped = _dedupe(all);
 
-      if (admin.isEmpty && teachers.isEmpty) {
-        final all = await _api.fetchStaff();
-        final deduped = _dedupe(all);
-        admin = deduped
-            .where((s) => _looksLikeAdministration(s.positionTitle))
-            .toList(growable: false);
-        teachers = deduped
-            .where((s) => !_looksLikeAdministration(s.positionTitle))
-            .toList(growable: false);
-      }
-
-      if (admin.isEmpty) admin = _fallbackAdministration();
-      if (teachers.isEmpty) teachers = _fallbackTeachers();
+      var admin = deduped
+          .where((s) => _looksLikeAdministration(s.positionTitle))
+          .toList(growable: false);
+      var teachers = deduped
+          .where((s) => !_looksLikeAdministration(s.positionTitle))
+          .toList(growable: false);
 
       await GuestStaffCache.save(admin, scope: 'student_admin');
       await GuestStaffCache.save(teachers, scope: 'student_teachers');
@@ -127,8 +108,6 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
       setState(() {
         _loading = false;
         if (_administration.isEmpty && _teachers.isEmpty) {
-          _administration = _fallbackAdministration();
-          _teachers = _fallbackTeachers();
           _error = e.toString();
         } else {
           _fromCache = true;
@@ -137,6 +116,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
     }
   }
 
+  /// Определяет, относится ли сотрудник к администрации по ключевым словам в должности
   bool _looksLikeAdministration(String position) {
     final p = position.toLowerCase();
     return p.contains('директор') ||
@@ -146,62 +126,6 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
         p.contains('приём') ||
         p.contains('диспетчер');
   }
-
-  List<StaffMemberItem> _fallbackAdministration() => [
-        StaffMemberItem(
-          id: 1,
-          fullName: 'Бирюкова О.Н.',
-          positionTitle: 'Директор колледжа',
-          email: '',
-          phone: '',
-          officeHours: '',
-          photoUrl: '',
-          colorHex: '1565C0',
-        ),
-        StaffMemberItem(
-          id: 2,
-          fullName: 'Жуковская Ю.В.',
-          positionTitle: 'Заместитель директора по учебной работе',
-          email: '',
-          phone: '',
-          officeHours: '',
-          photoUrl: '',
-          colorHex: '1976D2',
-        ),
-      ];
-
-  List<StaffMemberItem> _fallbackTeachers() => [
-        StaffMemberItem(
-          id: 10,
-          fullName: 'Вахитов Р.Г.',
-          positionTitle: 'Преподаватель',
-          email: '',
-          phone: '',
-          officeHours: '',
-          photoUrl: '',
-          colorHex: '4A90E2',
-        ),
-        StaffMemberItem(
-          id: 11,
-          fullName: 'Мустыгина Е.С.',
-          positionTitle: 'Преподаватель',
-          email: '',
-          phone: '',
-          officeHours: '',
-          photoUrl: '',
-          colorHex: '4A90E2',
-        ),
-        StaffMemberItem(
-          id: 12,
-          fullName: 'Катаева Е.М.',
-          positionTitle: 'Преподаватель',
-          email: '',
-          phone: '',
-          officeHours: '',
-          photoUrl: '',
-          colorHex: '4A90E2',
-        ),
-      ];
 
   @override
   void dispose() {
@@ -261,8 +185,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          if (_fromCache)
-            _offlineBanner(),
+          if (_fromCache) _offlineBanner(),
           if (_loading && list.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 32),
@@ -271,14 +194,14 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
           else if (_error != null && list.isEmpty)
             Text('Ошибка загрузки: $_error')
           else if (list.isEmpty)
-            const Text('Список пока пуст.')
-          else
-            ...list.map(
-              (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: StudentStaffCard(member: m),
+              const Text('Список пока пуст.')
+            else
+              ...list.map(
+                    (m) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: StudentStaffCard(member: m),
+                ),
               ),
-            ),
         ],
       ),
     );
@@ -352,12 +275,16 @@ class _FrostedStudentContactsHeader extends StatelessWidget {
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 220),
                   opacity: showCenterTitle ? 1 : 0,
-                  child: const Text(
-                    'Контакты',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                  child: AnimatedSlide(
+                    duration: const Duration(milliseconds: 220),
+                    offset: showCenterTitle ? Offset.zero : const Offset(0, -0.15),
+                    child: const Text(
+                      'Контакты',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ),
