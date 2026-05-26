@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/api/api_client.dart';
 import '../../data/cache/guest_staff_cache.dart';
 import '../../data/session/app_session.dart';
+import '../../data/student/student_teacher_names.dart';
 import '../../widgets/haptic_refresh_indicator.dart';
 import '../widgets/centered_app_bar_title.dart';
 import 'widgets/student_staff_card.dart';
@@ -150,7 +151,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
   List<StaffMemberItem> _fallbackAdministration() => [
         StaffMemberItem(
           id: 1,
-          fullName: 'Бирюкова О.Н.',
+          fullName: expandTeacherName('Бирюкова О.Н.'),
           positionTitle: 'Директор колледжа',
           email: '',
           phone: '',
@@ -160,7 +161,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
         ),
         StaffMemberItem(
           id: 2,
-          fullName: 'Жуковская Ю.В.',
+          fullName: expandTeacherName('Жуковская Ю.В.'),
           positionTitle: 'Заместитель директора по учебной работе',
           email: '',
           phone: '',
@@ -173,7 +174,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
   List<StaffMemberItem> _fallbackTeachers() => [
         StaffMemberItem(
           id: 10,
-          fullName: 'Вахитов Р.Г.',
+          fullName: expandTeacherName('Вахитов Р.Г.'),
           positionTitle: 'Преподаватель',
           email: '',
           phone: '',
@@ -183,7 +184,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
         ),
         StaffMemberItem(
           id: 11,
-          fullName: 'Мустыгина Е.С.',
+          fullName: expandTeacherName('Мустыгина Е.С.'),
           positionTitle: 'Преподаватель',
           email: '',
           phone: '',
@@ -193,7 +194,7 @@ class _StudentContactsScreenState extends State<StudentContactsScreen>
         ),
         StaffMemberItem(
           id: 12,
-          fullName: 'Катаева Е.М.',
+          fullName: expandTeacherName('Катаева Е.М.'),
           positionTitle: 'Преподаватель',
           email: '',
           phone: '',

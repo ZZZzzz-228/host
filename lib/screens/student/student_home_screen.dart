@@ -66,9 +66,31 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
           child: Column(
             children: [
               const SizedBox(height: 16),
-              // ЛЕНТА ИСТОРИЙ (STORIES) - ПРЯМОУГОЛЬНИКИ
+              const StudentHomeCollegeSection(),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Истории',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Новости ниже',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
               SizedBox(
-                height: 180,
+                height: 160,
                 child: FutureBuilder<List<StoryItem>>(
                   future: _storiesFuture,
                   builder: (context, snapshot) {
@@ -93,7 +115,7 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                         title: s.title,
                         content: s.content,
                         color: _storyBorderColor(index),
-                        imageUrl: s.imageUrl, // ✅ _fixUrl уже вызван в fromJson
+                        imageUrl: s.imageUrl,
                       );
                     });
 
@@ -108,8 +130,6 @@ class _StudentHomeScreenState extends State<StudentHomeScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 24),
-              const StudentHomeCollegeSection(),
               const SizedBox(height: 24),
               FutureBuilder<List<NewsItem>>(
                 future: _newsFuture,

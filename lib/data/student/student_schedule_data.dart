@@ -1,3 +1,8 @@
+import 'student_group_registry.dart';
+import 'student_schedule_generator.dart';
+import 'student_schedule_presets.dart';
+import 'student_teacher_names.dart';
+
 /// Расписание учебных групп (демо-данные; при появлении API — подменяются в экране).
 class ScheduleLesson {
   const ScheduleLesson({
@@ -39,6 +44,7 @@ const Map<int, String> lessonBellTimes = {
   4: '14:15–15:50',
   5: '16:00–17:25',
   6: '17:55–19:20',
+  7: '19:30–21:05',
 };
 
 const List<String> weekDayTitles = [
@@ -50,183 +56,24 @@ const List<String> weekDayTitles = [
   'Суббота',
 ];
 
-/// Группа ИСК-3-22 — по расписанию 1 семестра 2025–2026 (фото).
-List<ScheduleLesson> _isk322Lessons() => const [
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 3,
-    subject: 'Разговоры о важном',
-    teacher: 'Вахитов Р.Г.',
-    room: 'ауд. 13.20',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 4,
-    subject: 'Инжиниринг и техническая поддержка сопровождения ИС',
-    teacher: 'Торосян С.Т.',
-    room: 'ауд. 406',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 5,
-    subject: 'Интеллектуальные системы и технологии',
-    teacher: 'Катаева Е.М.',
-    room: 'ауд. 504',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 2,
-    lessonNumber: 2,
-    subject: 'Управление базами данных и автоматизация',
-    teacher: 'Вахитов Р.Г.',
-    room: 'ауд. 410',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 2,
-    lessonNumber: 3,
-    subject: 'Психология общения',
-    teacher: 'Чепенко С.А.',
-    room: 'ауд. 207',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 2,
-    lessonNumber: 4,
-    subject: 'Тестирование информационных систем',
-    teacher: 'Мустыгина Е.С.',
-    room: 'ауд. 301',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 3,
-    lessonNumber: 3,
-    subject: 'Менеджмент в профессиональной деятельности',
-    teacher: 'Жуковская Ю.В.',
-    room: 'ауд. 504',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 3,
-    lessonNumber: 5,
-    subject: 'Физическая культура',
-    teacher: 'Бахирева Н.А.',
-    room: 'спортзал',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 4,
-    lessonNumber: 2,
-    subject: 'Иностранный язык в профессиональной деятельности',
-    teacher: 'Горбачева А.К.',
-    room: 'ауд. Л 609',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 4,
-    lessonNumber: 4,
-    subject: 'Деловое общение в профессиональной деятельности',
-    teacher: 'Букалина Д.А.',
-    room: 'ауд. 201',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 5,
-    lessonNumber: 3,
-    subject: 'Сертификация информационных систем',
-    teacher: 'Мустыгина Е.С.',
-    room: 'ауд. 405',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 5,
-    lessonNumber: 4,
-    subject: 'Интеллектуальные системы и технологии',
-    teacher: 'Катаева Е.М.',
-    room: 'ауд. 504',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 6,
-    lessonNumber: 2,
-    subject: 'Тестирование информационных систем',
-    teacher: 'Мустыгина Е.С.',
-    room: 'ауд. 301',
-  ),
-];
+List<ScheduleLesson> _lessonsForGroup(GroupMeta meta) {
+  final preset = presetForGroup(meta.name);
+  if (preset != null) return preset;
+  return generateScheduleForGroup(meta.name, meta.course);
+}
 
-List<ScheduleLesson> _isp22Lessons() => const [
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 1,
-    subject: 'Архитектура аппаратных средств',
-    teacher: 'Мамыкин С.Е.',
-    room: 'ауд. 509',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 2,
-    subject: 'Основы алгоритмизации и программирования',
-    teacher: 'Гвоздиевская О.С.',
-    room: 'ауд. 411',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 1,
-    lessonNumber: 3,
-    subject: 'Информационные системы и программирование',
-    teacher: 'Мустыгина Е.С.',
-    room: 'ауд. 410',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 3,
-    lessonNumber: 2,
-    subject: 'Базы данных',
-    teacher: 'Вахитов Р.Г.',
-    room: 'ауд. 410',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 4,
-    lessonNumber: 4,
-    subject: 'Физическая культура',
-    teacher: 'Бахирева Н.А.',
-    room: 'спортзал',
-  ),
-  ScheduleLesson(
-    dayOfWeek: 5,
-    lessonNumber: 3,
-    subject: 'Иностранный язык в профессиональной деятельности',
-    teacher: 'Горбачева А.К.',
-    room: 'ауд. Л 609',
-  ),
-];
+StudyGroupSchedule _buildSchedule(GroupMeta meta) {
+  return StudyGroupSchedule(
+    name: meta.name,
+    specialtyCode: meta.specialtyCode,
+    course: meta.course,
+    curatorName: expandTeacherName(meta.curatorName),
+    lessons: _lessonsForGroup(meta),
+  );
+}
 
-List<StudyGroupSchedule> studentGroupSchedules = [
-  StudyGroupSchedule(
-    name: 'ИСК-3-22',
-    specialtyCode: 'ИСК',
-    course: 3,
-    curatorName: 'Вахитов Р.Г.',
-    lessons: _isk322Lessons(),
-  ),
-  StudyGroupSchedule(
-    name: 'ИСП-2-22',
-    specialtyCode: 'ИСП',
-    course: 2,
-    curatorName: 'Мустыгина Е.С.',
-    lessons: _isp22Lessons(),
-  ),
-  StudyGroupSchedule(
-    name: 'ИСК-2-22',
-    specialtyCode: 'ИСК',
-    course: 2,
-    curatorName: 'Катаева Е.М.',
-    lessons: _isp22Lessons(),
-  ),
-  StudyGroupSchedule(
-    name: 'ТОАД-1-23',
-    specialtyCode: 'ТОАД',
-    course: 1,
-    curatorName: 'Торосян С.Т.',
-    lessons: _isp22Lessons(),
-  ),
-  StudyGroupSchedule(
-    name: 'ССА-2-22',
-    specialtyCode: 'ССА',
-    course: 2,
-    curatorName: 'Жуковская Ю.В.',
-    lessons: _isp22Lessons(),
-  ),
-];
+final List<StudyGroupSchedule> studentGroupSchedules =
+    allCollegeGroups.map(_buildSchedule).toList(growable: false);
 
 List<StudyGroupSchedule> filterGroups({
   int? course,
@@ -241,6 +88,14 @@ List<StudyGroupSchedule> filterGroups({
     }
     return true;
   }).toList(growable: false);
+}
+
+StudyGroupSchedule? findGroupSchedule(String name) {
+  final key = name.trim().toLowerCase();
+  for (final g in studentGroupSchedules) {
+    if (g.name.toLowerCase() == key) return g;
+  }
+  return null;
 }
 
 List<String> get studentSpecialtyCodes =>

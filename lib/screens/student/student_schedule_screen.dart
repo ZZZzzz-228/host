@@ -41,7 +41,7 @@ class _StudentScheduleScreenState extends State<StudentScheduleScreen>
 
     final group = preferred ??
         studentGroupSchedules.firstWhere(
-          (g) => g.name == 'ИСК-3-22',
+          (g) => g.name == 'ИСК1-22',
           orElse: () => studentGroupSchedules.first,
         );
 

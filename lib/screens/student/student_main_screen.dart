@@ -54,7 +54,7 @@ class _StudentMainScreenState extends State<StudentMainScreen> {
                 index: 2,
                 activeIcon: 'assets/icons/student/home_active.png',
                 inactiveIcon: 'assets/icons/student/home.png',
-                label: 'Главное',
+                label: 'О колледже',
               ),
               _buildNavItem(
                 index: 3,

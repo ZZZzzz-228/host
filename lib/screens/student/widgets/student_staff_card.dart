@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../data/api/api_client.dart';
 import '../../../data/session/app_session.dart';
+import '../../../data/student/student_teacher_names.dart';
 
 class StudentStaffCard extends StatelessWidget {
   const StudentStaffCard({
@@ -91,7 +92,7 @@ class StudentStaffCard extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  member.fullName,
+                  expandTeacherName(member.fullName),
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
