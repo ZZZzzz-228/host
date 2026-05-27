@@ -23,25 +23,57 @@ class StudentClubsScreen extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final club = studentExtraClubs[index];
+            final primary = club.isPrimary;
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: primary ? const Color(0xFFE3F2FD) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                  color: primary
+                      ? const Color(0xFF4A90E2)
+                      : Colors.grey.shade300,
+                  width: primary ? 1.5 : 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (primary)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A90E2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Главная организация',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   Text(
                     club.title,
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: primary ? 17 : 16,
                       fontWeight: FontWeight.bold,
+                      color: primary
+                          ? const Color(0xFF1565C0)
+                          : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _clubRow(Icons.person_outline, 'Руководитель: ${club.leader}'),
+                  _clubRow(
+                    Icons.person_outline,
+                    'Руководитель: ${club.leader}',
+                  ),
                   _clubRow(Icons.schedule, club.schedule),
                   _clubRow(Icons.room, club.room),
                   if (club.description.isNotEmpty) ...[

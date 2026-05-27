@@ -83,7 +83,7 @@ class _StudentHomeCollegeSectionState extends State<StudentHomeCollegeSection> {
           _buildMenuTile(
             icon: Icons.groups,
             title: 'Доп. кружки',
-            subtitle: 'Патриот, робототехника и др.',
+            subtitle: 'Совет студентов, патриот, робототехника',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const StudentClubsScreen()),
