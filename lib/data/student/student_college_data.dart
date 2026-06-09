@@ -49,7 +49,7 @@ List<CollegeDepartment> get studentCollegeDepartments => [
       CollegeDepartment(
         code: '1',
         title: 'Отделение №1',
-        headName: 'Курдойк Елена Дмитриевна',
+        headName: 'Курдояк Елена Дмитриевна',
         headPosition: 'Заведующая отделением',
         description:
             'Информационные системы, программирование, интеллектуальные системы.',

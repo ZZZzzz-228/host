@@ -497,6 +497,52 @@ class ApiClient {
     }
   }
 
+
+  Future<List<CollegeDepartmentApiItem>> fetchCollegeDepartments() async {
+    try {
+      final response = await _get('/departments');
+      final json = _decodeJson(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load departments');
+      }
+      final data = json['data'];
+      if (data is! List) return const [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(CollegeDepartmentApiItem.fromJson)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchCollegeDepartments failed: $e');
+      return const [];
+    }
+  }
+
+  Future<GroupScheduleApiItem?> fetchGroupSchedule(String groupName) async {
+    final key = groupName.trim();
+    if (key.isEmpty) return null;
+    try {
+      final uri = _u('/group-schedule').replace(
+        queryParameters: {'group': key},
+      );
+      final response = await _executeRequest(
+            (client, headers) => client.get(uri, headers: headers),
+      );
+      final json = _decodeJson(response.body);
+      if (response.statusCode == 404) return null;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+            json['message']?.toString() ?? 'Failed to load group schedule');
+      }
+      final data = json['data'];
+      if (data is! Map<String, dynamic>) return null;
+      return GroupScheduleApiItem.fromJson(data);
+    } catch (e) {
+      debugPrint('[ApiClient] fetchGroupSchedule failed: $e');
+      return null;
+    }
+  }
+
   Future<List<SpecialtyItem>> fetchSpecialties() async {
     try {
       final response = await _get('/specialties');
@@ -1169,6 +1215,169 @@ class StaffMemberItem {
     'photo_url': photoUrl,
     'color_hex': colorHex,
   };
+}
+
+
+class DepartmentGroupItem {
+  const DepartmentGroupItem({
+    required this.id,
+    required this.name,
+    required this.departmentCode,
+    required this.specialtyCode,
+    required this.studyYear,
+    required this.studentsCount,
+    required this.curatorName,
+  });
+
+  final int id;
+  final String name;
+  final String departmentCode;
+  final String specialtyCode;
+  final int studyYear;
+  final int studentsCount;
+  final String curatorName;
+
+  factory DepartmentGroupItem.fromJson(Map<String, dynamic> json) {
+    return DepartmentGroupItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] ?? '').toString(),
+      departmentCode: (json['department_code'] ?? json['short_name'] ?? '')
+          .toString(),
+      specialtyCode: (json['specialty_code'] ?? '').toString(),
+      studyYear: (json['study_year'] as num?)?.toInt() ?? 0,
+      studentsCount: (json['students_count'] as num?)?.toInt() ?? 0,
+      curatorName: (json['curator_name'] ?? '').toString(),
+    );
+  }
+}
+
+class CollegeDepartmentApiItem {
+  const CollegeDepartmentApiItem({
+    required this.id,
+    required this.code,
+    required this.title,
+    required this.headName,
+    required this.headPosition,
+    required this.description,
+    required this.groupsCount,
+    required this.groups,
+  });
+
+  final int id;
+  final String code;
+  final String title;
+  final String headName;
+  final String headPosition;
+  final String description;
+  final int groupsCount;
+  final List<DepartmentGroupItem> groups;
+
+  factory CollegeDepartmentApiItem.fromJson(Map<String, dynamic> json) {
+    final rawGroups = json['groups'];
+    final groups = rawGroups is List
+        ? rawGroups
+            .whereType<Map<String, dynamic>>()
+            .map(DepartmentGroupItem.fromJson)
+            .toList(growable: false)
+        : const <DepartmentGroupItem>[];
+    return CollegeDepartmentApiItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      code: (json['code'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      headName: (json['head_name'] ?? '').toString(),
+      headPosition: (json['head_position'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+      groupsCount: (json['groups_count'] as num?)?.toInt() ?? groups.length,
+      groups: groups,
+    );
+  }
+}
+
+class GroupScheduleLessonItem {
+  const GroupScheduleLessonItem({
+    required this.id,
+    required this.dayOfWeek,
+    required this.lessonNumber,
+    required this.subject,
+    required this.teacher,
+    required this.room,
+    required this.weekType,
+    required this.timeStart,
+    required this.timeEnd,
+    required this.lessonType,
+    required this.subgroup,
+    required this.note,
+  });
+
+  final int id;
+  final int dayOfWeek;
+  final int lessonNumber;
+  final String subject;
+  final String teacher;
+  final String room;
+  final String weekType;
+  final String timeStart;
+  final String timeEnd;
+  final String lessonType;
+  final int subgroup;
+  final String note;
+
+  String get timeLabel {
+    if (timeStart.isEmpty && timeEnd.isEmpty) return '';
+    if (timeStart.isEmpty) return timeEnd;
+    if (timeEnd.isEmpty) return timeStart;
+    return '$timeStart–$timeEnd';
+  }
+
+  factory GroupScheduleLessonItem.fromJson(Map<String, dynamic> json) {
+    return GroupScheduleLessonItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      dayOfWeek: (json['day_of_week'] as num?)?.toInt() ?? 0,
+      lessonNumber: (json['lesson_number'] as num?)?.toInt() ?? 0,
+      subject: (json['subject'] ?? '').toString(),
+      teacher: (json['teacher'] ?? '').toString(),
+      room: (json['room'] ?? '').toString(),
+      weekType: (json['week_type'] ?? '').toString(),
+      timeStart: (json['time_start'] ?? '').toString(),
+      timeEnd: (json['time_end'] ?? '').toString(),
+      lessonType: (json['lesson_type'] ?? '').toString(),
+      subgroup: (json['subgroup'] as num?)?.toInt() ?? 0,
+      note: (json['note'] ?? '').toString(),
+    );
+  }
+}
+
+class GroupScheduleApiItem {
+  const GroupScheduleApiItem({
+    required this.groupName,
+    required this.specialtyCode,
+    required this.course,
+    required this.curatorName,
+    required this.lessons,
+  });
+
+  final String groupName;
+  final String specialtyCode;
+  final int course;
+  final String curatorName;
+  final List<GroupScheduleLessonItem> lessons;
+
+  factory GroupScheduleApiItem.fromJson(Map<String, dynamic> json) {
+    final rawLessons = json['lessons'];
+    final lessons = rawLessons is List
+        ? rawLessons
+            .whereType<Map<String, dynamic>>()
+            .map(GroupScheduleLessonItem.fromJson)
+            .toList(growable: false)
+        : const <GroupScheduleLessonItem>[];
+    return GroupScheduleApiItem(
+      groupName: (json['group_name'] ?? '').toString(),
+      specialtyCode: (json['specialty_code'] ?? '').toString(),
+      course: (json['course'] as num?)?.toInt() ?? 0,
+      curatorName: (json['curator_name'] ?? '').toString(),
+      lessons: lessons,
+    );
+  }
 }
 
 class StoryItem {
