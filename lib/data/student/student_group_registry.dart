@@ -21,7 +21,7 @@ class GroupMeta {
 
 /// Порядок и привязка групп — по отделениям колледжа (заведующие на скрине админки).
 const List<GroupMeta> allCollegeGroups = [
-  // ── Отделение №1 (Курдойк Е.Д.) — ИСП и ИСК ──
+  // ── Отделение №1 (Курдояк Е.Д.) — ИСП и ИСК ──
   GroupMeta(name: 'ПК-10-25', departmentCode: '1', course: 1, curatorName: 'Селюн Е.В.'),
   GroupMeta(name: 'ИТ-17-25', departmentCode: '1', course: 1, curatorName: 'Фукс М.С.'),
   GroupMeta(name: 'БИАС-14-25', departmentCode: '1', course: 1, curatorName: 'Андриевская Н.М.'),
